@@ -1,0 +1,16 @@
+{
+  "name": "arihant-coaching",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npm run dev",
+    "client": "npm start --prefix client",
+    "server": "npm start --prefix server",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.424.0",
+    "react-scroll": "^1.9.3"
+  }
+}

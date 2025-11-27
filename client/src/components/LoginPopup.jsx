@@ -1,0 +1,140 @@
+import React, { useState } from "react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { motion } from "framer-motion";
+
+export default function LoginPopup({ onClose, onLogin }) {
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError("Please enter email and password");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.msg || "Invalid credentials ❌");
+        setLoading(false);
+        return;
+      }
+
+      const userData = {
+        id: data.user?.id || "",
+        name: data.user?.name || email.split("@")[0],
+        email: data.user?.email || email,
+        role: data.role || "user"
+      };
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      onLogin(userData);
+      setLoading(false);
+      onClose();
+
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Server error. Try again later.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]">
+
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl relative"
+      >
+
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-4 text-gray-600 hover:text-black text-lg"
+        >
+          ✕
+        </button>
+
+        {/* Title */}
+        <h2 className="text-2xl font-extrabold text-center text-blue-700 mb-6">
+          Welcome Back 👋
+        </h2>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-100 text-red-600 text-sm p-2 rounded mb-4 text-center">
+            {error}
+          </div>
+        )}
+
+        {/* Email */}
+        <div className="relative mb-4">
+          <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+          <input
+            type="email"
+            placeholder="Enter your email"
+            className="w-full border pl-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+          />
+        </div>
+
+        {/* Password */}
+        <div className="relative mb-6">
+          <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+          <input
+            type={showPass ? "text" : "password"}
+            placeholder="Enter your password"
+            className="w-full border pl-10 pr-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+          />
+
+          <button
+            onClick={() => setShowPass(!showPass)}
+            className="absolute right-3 top-2.5 text-gray-500 hover:text-blue-600"
+          >
+            {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+
+        {/* Login Button */}
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleLogin}
+          disabled={loading}
+          className={`w-full py-3 rounded-lg text-white font-semibold transition 
+            ${loading ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800"}`}
+        >
+          {loading ? "Logging in..." : "Login"}
+        </motion.button>
+
+        {/* Footer Text */}
+        <p className="text-xs text-gray-500 text-center mt-6">
+          By logging in you agree to our Terms & Privacy Policy
+        </p>
+      </motion.div>
+    </div>
+  );
+}

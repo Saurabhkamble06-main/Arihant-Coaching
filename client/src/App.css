@@ -1,0 +1,45 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f9fafb;
+  margin: 0;
+}
+
+.navbar {
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 40px;
+}
+
+.navbar ul {
+  list-style: none;
+  display: flex;
+  gap: 25px;
+}
+
+.navbar a {
+  color: white;
+  text-decoration: none;
+}
+
+.register, .home, .courses, .login {
+  text-align: center;
+  margin-top: 60px;
+}
+
+.register input {
+  display: block;
+  margin: 10px auto;
+  padding: 8px;
+  width: 250px;
+}
+
+.register button {
+  padding: 8px 15px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
