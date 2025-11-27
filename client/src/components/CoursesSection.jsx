@@ -22,7 +22,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
   // Fetch courses
   useEffect(() => {
-    fetch("http://localhost:5000/api/courses")
+    fetch("https://arihant-coaching-siso.vercel.app")
       .then(res => res.json())
       .then(data => Array.isArray(data) ? setCourses(data) : [])
       .catch(err => console.error("Course Fetch Error:", err));
