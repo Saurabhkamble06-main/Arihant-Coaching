@@ -22,7 +22,8 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
   // Fetch courses
   useEffect(() => {
-    fetch("https://arihant-coaching-siso.vercel.app")
+    fetch(`${process.env.REACT_APP_API_URL}/api/courses`)
+
       .then(res => res.json())
       .then(data => Array.isArray(data) ? setCourses(data) : [])
       .catch(err => console.error("Course Fetch Error:", err));
@@ -54,7 +55,8 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
       handler: async (response) => {
 
-        await fetch("http://localhost:5000/api/payment/save", {
+        await fetch(`${process.env.REACT_APP_API_URL}/api/payment/save`, {
+
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
