@@ -17,44 +17,40 @@ const app = express();
 /* ======================================================
    ✅ FULL CORS (Local + Vercel Preview + Vercel Prod + Render)
    ====================================================== */
+/* ======================================================
+   ✅ FIXED CORS (Vercel Preview + Prod + Local + Render)
+   ====================================================== */
 
 const allowedOrigins = [
-  // Local Development
   "http://localhost:3000",
   "http://localhost:5173",
 
-  // Vercel Preview Deployments (wildcard)
-  "https://*.vercel.app",
-
-  // Your specific Vercel preview link from logs
-  "https://arihant-coaching-v-git-0d0334-innovexasolutions06-hubs-projects.vercel.app",
+  // Your new Vercel Preview URL
+  "https://arihant-coaching-sa9g-87e3lnaj0.vercel.app",
 
   // Vercel Production URL
   "https://arihant-coaching.vercel.app",
 
-  // Your Render Backend URL
+  // Render backend itself
   "https://arihant-coaching.onrender.com"
 ];
+
+// Support ALL *.vercel.app preview deployments
+function isVercelPreview(origin) {
+  return origin && origin.endsWith(".vercel.app");
+}
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow mobile apps/Postman with no origin
+      if (!origin) return callback(null, true);
 
-      const isAllowed = allowedOrigins.some((allowed) => {
-        if (allowed.includes("*")) {
-          const domain = allowed.replace("*.", "");
-          return origin.endsWith(domain);
-        }
-        return origin === allowed;
-      });
-
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        console.log("❌ BLOCKED ORIGIN:", origin);
-        callback(new Error("Not allowed by CORS"));
+      if (allowedOrigins.includes(origin) || isVercelPreview(origin)) {
+        return callback(null, true);
       }
+
+      console.log("❌ BLOCKED ORIGIN:", origin);
+      return callback(new Error("CORS Blocked"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
@@ -62,6 +58,7 @@ app.use(
 );
 
 app.options("*", cors());
+
 
 /* ======================================================
    ✅ MIDDLEWARES
