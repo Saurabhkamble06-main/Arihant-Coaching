@@ -14,44 +14,91 @@ dotenv.config();
 
 const app = express();
 
-/* ✅ CORS CONFIG */
+/* ======================================================
+   ✅ FULL CORS (Local + Vercel Preview + Vercel Prod + Render)
+   ====================================================== */
+
 const allowedOrigins = [
+  // Local Development
+  "http://localhost:3000",
   "http://localhost:5173",
-  "https://arihant-coaching-u117.vercel.app"
+
+  // Vercel Preview Deployments (wildcard)
+  "https://*.vercel.app",
+
+  // Your specific Vercel preview link from logs
+  "https://arihant-coaching-v-git-0d0334-innovexasolutions06-hubs-projects.vercel.app",
+
+  // Vercel Production URL
+  "https://arihant-coaching.vercel.app",
+
+  // Your Render Backend URL
+  "https://arihant-coaching.onrender.com"
 ];
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Allow mobile apps/Postman with no origin
+
+      const isAllowed = allowedOrigins.some((allowed) => {
+        if (allowed.includes("*")) {
+          const domain = allowed.replace("*.", "");
+          return origin.endsWith(domain);
+        }
+        return origin === allowed;
+      });
+
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS: " + origin));
+        console.log("❌ BLOCKED ORIGIN:", origin);
+        callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   })
 );
 
 app.options("*", cors());
 
-/* ✅ Middlewares */
+/* ======================================================
+   ✅ MIDDLEWARES
+   ====================================================== */
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ✅ Root Route */
+/* ======================================================
+   ✅ HEALTH CHECK (Render)
+   ====================================================== */
+
+app.get("/health", (req, res) => {
+  res.status(200).send("✅ API Healthy & Running");
+});
+
+/* ======================================================
+   ✅ ROOT ROUTE
+   ====================================================== */
+
 app.get("/", (req, res) => {
   res.send("✅ Arihant Coaching Backend is Running...");
 });
 
-/* ✅ MongoDB Connect */
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected Successfully"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+/* ======================================================
+   ✅ MONGO CONNECT
+   ====================================================== */
 
-/* ✅ MongoDB Test Route */
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Error:", err));
+
+/* ======================================================
+   ✅ TEST DB ROUTE
+   ====================================================== */
+
 app.get("/test-db", async (req, res) => {
   try {
     const Payment = (await import("./models/Payment.js")).default;
@@ -69,21 +116,26 @@ app.get("/test-db", async (req, res) => {
       message: "✅ MongoDB write test success",
       payment
     });
-
   } catch (error) {
-    console.error("❌ MongoDB Write Error:", error);
+    console.error("❌ Test DB Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-/* ✅ API Routes */
+/* ======================================================
+   ✅ ROUTES
+   ====================================================== */
+
 app.use("/api/auth", authRoutes);
 app.use("/api/admission", admissionRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", courseRoutes);
 
-/* ✅ 404 Handler */
+/* ======================================================
+   ❌ 404 HANDLER
+   ====================================================== */
+
 app.use((req, res) => {
   res.status(404).json({
     error: "Route not found ❌",
@@ -91,16 +143,22 @@ app.use((req, res) => {
   });
 });
 
-/* ✅ Global Error Handler */
+/* ======================================================
+   ❌ GLOBAL ERROR HANDLER
+   ====================================================== */
+
 app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err.stack);
+  console.error("🔥 SERVER ERROR:", err.stack);
   res.status(500).json({
-    error: "Internal Server Error",
+    error: "Server Error",
     message: err.message
   });
 });
 
-/* ✅ Start Server */
+/* ======================================================
+   🚀 START SERVER
+   ====================================================== */
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
