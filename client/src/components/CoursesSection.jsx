@@ -7,12 +7,12 @@ export default function CoursesSection({ user, onTriggerLogin }) {
   const [courses, setCourses] = useState([]);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  // ✅ Use Render backend URL
+  // ✅ CRA-Compatible ENV Variables
   const API_URL =
-    import.meta.env.VITE_API_URL || "https://arihant-coaching.onrender.com";
+    process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
 
-  // ✅ Razorpay Key from ENV
-  const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY;
+  const RAZORPAY_KEY =
+    process.env.REACT_APP_RAZORPAY_KEY || "";
 
   // ✅ Load Razorpay Script
   useEffect(() => {
@@ -33,7 +33,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     const fetchCourses = async () => {
       try {
         const res = await fetch(`${API_URL}/api/courses`);
-
         const data = await res.json();
 
         if (Array.isArray(data)) {
@@ -49,7 +48,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     };
 
     fetchCourses();
-  }, []);
+  }, [API_URL]);
 
   // ✅ Handle Payment
   const handlePayment = (course) => {
@@ -71,7 +70,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     }
 
     const options = {
-      key: RAZORPAY_KEY,   // ✅ loaded from env
+      key: RAZORPAY_KEY,
       amount: Number(course?.fees || 0) * 100,
       currency: "INR",
       name: "Arihant Coaching Classes",
@@ -139,7 +138,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
       {/* Grid */}
       <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
-
         {courses.length === 0 && (
           <p className="col-span-3 text-center text-red-600 text-lg font-semibold">
             No courses available right now.
@@ -147,7 +145,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         )}
 
         {courses.map((course, i) => (
-
           <motion.div
             key={course?._id || i}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -157,7 +154,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             whileHover={{ y: -6 }}
             className="relative rounded-3xl border border-blue-100 bg-white/90 p-7 shadow-xl"
           >
-
             <div className="absolute -top-4 right-5 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-semibold shadow">
               Popular
             </div>
@@ -171,12 +167,9 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             </p>
 
             <div className="space-y-3 text-sm text-gray-700">
-
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-blue-600" />
-                <span>
-                  {course?.duration || "Duration not specified"}
-                </span>
+                <span>{course?.duration || "Duration not specified"}</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -202,19 +195,17 @@ export default function CoursesSection({ user, onTriggerLogin }) {
               whileHover={{ scale: 1.05 }}
               onClick={() => handlePayment(course)}
               className={`mt-6 w-full py-3 rounded-xl font-semibold text-white 
-                ${user 
-                  ? "bg-blue-600 hover:bg-blue-700" 
-                  : "bg-red-500 hover:bg-red-600"
+                ${
+                  user
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-red-500 hover:bg-red-600"
                 }`}
             >
               {user ? "Enroll Now" : "Login to Enroll"}
             </motion.button>
-
           </motion.div>
-
         ))}
       </div>
-
     </section>
   );
 }
