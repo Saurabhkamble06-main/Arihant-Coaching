@@ -9,7 +9,7 @@ export default function LoginPopup({ onClose, onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ✅ Render Backend
+  // 🔥 Backend URL (Render)
   const API_URL =
     process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
 
@@ -26,7 +26,10 @@ export default function LoginPopup({ onClose, onLogin }) {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(), // 🔥 FIXED — normalize email
+          password,
+        }),
       });
 
       const data = await res.json();
@@ -37,27 +40,27 @@ export default function LoginPopup({ onClose, onLogin }) {
         return;
       }
 
+      // 🔥 User data
       const userData = {
-        id: data.user?.id || "",
-        name: data.user?.name || email.split("@")[0],
-        email: data.user?.email || email,
+        id: data.user?.id,
+        name: data.user?.name,
+        email: data.user?.email,
         role: data.role || "user",
       };
 
-      // Store token + user
+      // Save token + user
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(userData));
 
       onLogin(userData);
       setLoading(false);
 
-      // restore scroll
       document.body.style.overflow = "auto";
-
       onClose();
+
     } catch (err) {
-      console.error("Login error:", err);
-      setError("Server error. Try again later.");
+      console.error("Login Error:", err);
+      setError("Server Error. Try again later.");
       setLoading(false);
     }
   };
@@ -81,10 +84,12 @@ export default function LoginPopup({ onClose, onLogin }) {
           ✕
         </button>
 
+        {/* Heading */}
         <h2 className="text-2xl font-extrabold text-center text-blue-700 mb-6">
           Welcome Back 👋
         </h2>
 
+        {/* Error */}
         {error && (
           <div className="bg-red-100 text-red-600 text-sm p-2 rounded mb-4 text-center">
             {error}
@@ -116,6 +121,7 @@ export default function LoginPopup({ onClose, onLogin }) {
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
           />
 
+          {/* Eye Toggle */}
           <button
             onClick={() => setShowPass(!showPass)}
             className="absolute right-3 top-2.5 text-gray-500 hover:text-blue-600"

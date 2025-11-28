@@ -5,15 +5,21 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// ✅ TEST AUTH ROUTE
+// TEST
 router.get("/", (req, res) => {
   res.json({ message: "Auth API is working ✅" });
 });
 
-// ✅ REGISTER
+// REGISTER
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    let { name, email, password } = req.body;
+
+    if (!name || !email || !password)
+      return res.status(400).json({ msg: "All fields are required" });
+
+    // NORMALIZE EMAIL
+    email = email.toLowerCase().trim();
 
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ msg: "User already exists" });
@@ -24,7 +30,7 @@ router.post("/register", async (req, res) => {
       name,
       email,
       password: hashed,
-      role: "user"
+      role: "user",
     });
 
     res.json({
@@ -33,20 +39,25 @@ router.post("/register", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-
   } catch (err) {
     console.error("Register Error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// ✅ LOGIN
+// LOGIN
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    if (!email || !password)
+      return res.status(400).json({ msg: "Email & password required" });
+
+    // NORMALIZE EMAIL
+    email = email.toLowerCase().trim();
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: "User not found" });
@@ -60,20 +71,18 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    // ✅ Always send full user info
     res.json({
       token,
       role: user.role,
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
-      }
+        email: user.email,
+      },
     });
-
   } catch (err) {
     console.error("Login Error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
