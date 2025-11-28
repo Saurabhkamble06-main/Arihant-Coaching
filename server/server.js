@@ -1,27 +1,67 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 // Import Routes
 import authRoutes from "./routes/authRoutes.js";
 import admissionRoutes from "./routes/admissionRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import courseRoutes from "./routes/courseRoutes.js";   // 👈 Courses API
+import courseRoutes from "./routes/courseRoutes.js";
 
 dotenv.config();
+
 const app = express();
 
-// ✅ Middlewares
-app.use(cors());
-app.use(express.json());
+/* ✅ Allowed Frontend Origins */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://arihant-coaching-u117.vercel.app",
+  process.env.FRONTEND_URL
+];
 
-// ✅ Root Test Route
+/* ✅ CORS Logic */
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // Postman, curl
+  if (allowedOrigins.includes(origin)) return true;
+  if (origin.includes(".onrender.com")) return true;
+  return false;
+};
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("❌ CORS blocked: " + origin));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
+/* Handle Preflight */
+app.options("*", cors({ origin: true, credentials: true }));
+
+/* ✅ Middlewares */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ✅ Root Route */
 app.get("/", (req, res) => {
   res.send("✅ Arihant Coaching Backend is Running...");
 });
 
-// ✅ MongoDB Test Route
+/* ✅ MongoDB Connect */
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+
+/* ✅ MongoDB Test Route */
 app.get("/test-db", async (req, res) => {
   try {
     const Payment = (await import("./models/Payment.js")).default;
@@ -46,14 +86,14 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
-// ✅ API Routes
+/* ✅ API Routes */
 app.use("/api/auth", authRoutes);
 app.use("/api/admission", admissionRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/courses", courseRoutes);   // ✅ COURSE ROUTE
+app.use("/api/courses", courseRoutes);
 
-// ✅ 404 Handler
+/* ✅ 404 Handler */
 app.use((req, res) => {
   res.status(404).json({
     error: "Route not found ❌",
@@ -61,13 +101,18 @@ app.use((req, res) => {
   });
 });
 
-// ✅ Global Error Handler
+/* ✅ Global Error Handler */
 app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err.stack);
+  console.error("🔥 Server Error:", err.message);
   res.status(500).json({
     error: "Internal Server Error",
     message: err.message
   });
 });
 
-export default app;
+/* ✅ Start Server */
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});

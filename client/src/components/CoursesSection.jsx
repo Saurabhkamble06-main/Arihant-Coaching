@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Users, IndianRupee, Clock } from "lucide-react";
+import { Users, IndianRupee, Clock } from "lucide-react";
 
 export default function CoursesSection({ user, onTriggerLogin }) {
 
   const [courses, setCourses] = useState([]);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  // Load Razorpay script
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+  // ✅ Load Razorpay once
   useEffect(() => {
     if (window.Razorpay) {
       setRazorpayLoaded(true);
@@ -17,59 +19,73 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => setRazorpayLoaded(true);
+    script.onerror = () => console.error("❌ Razorpay failed to load");
     document.body.appendChild(script);
   }, []);
 
-  // Fetch courses
+  // ✅ Fetch courses safely
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/api/courses`)
-
+    fetch(`${API_URL}/api/courses`)
       .then(res => res.json())
-      .then(data => Array.isArray(data) ? setCourses(data) : [])
-      .catch(err => console.error("Course Fetch Error:", err));
-  }, []);
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCourses(data);
+        } else {
+          console.error("⚠ API returned invalid courses:", data);
+          setCourses([]);
+        }
+      })
+      .catch(err => {
+        console.error("❌ Course Fetch Error:", err);
+        setCourses([]);
+      });
+  }, [API_URL]);
 
+  // ✅ Handle Payment
   const handlePayment = (course) => {
 
     if (!user) {
-      onTriggerLogin();
+      if (onTriggerLogin) onTriggerLogin();
       return;
     }
 
     if (!razorpayLoaded) {
-      alert("Payment system loading, please wait...");
+      alert("⏳ Payment system loading, please wait...");
       return;
     }
 
     const options = {
       key: "rzp_live_RSDZXNQuzxyWEL",
-      amount: course.fees * 100,
+      amount: Number(course?.fees || 0) * 100,
       currency: "INR",
       name: "Arihant Coaching Classes",
-      description: course.title,
+      description: course?.title || "Course",
 
       prefill: {
-        name: user.name,
-        email: user.email
+        name: user?.name || "",
+        email: user?.email || ""
       },
 
       handler: async (response) => {
+        try {
+          await fetch(`${API_URL}/api/payment/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              studentName: user?.name,
+              email: user?.email,
+              course: course?.title,
+              amount: course?.fees,
+              paymentId: response.razorpay_payment_id,
+              status: "Paid"
+            })
+          });
 
-        await fetch(`${process.env.REACT_APP_API_URL}/api/payment/save`, {
-
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            studentName: user.name,
-            email: user.email,
-            course: course.title,
-            amount: course.fees,
-            paymentId: response.razorpay_payment_id,
-            status: "Paid"
-          })
-        });
-
-        alert("✅ Payment Successful & Enrollment Confirmed!");
+          alert("✅ Payment Successful & Enrollment Confirmed!");
+        } catch (err) {
+          console.error("❌ Save payment error:", err);
+          alert("⚠ Payment done but saving failed. Contact support.");
+        }
       },
 
       theme: {
@@ -86,12 +102,11 @@ export default function CoursesSection({ user, onTriggerLogin }) {
       id="courses" 
       className="py-28 bg-gradient-to-br from-blue-50 via-white to-blue-100"
     >
-
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
+        initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
+        transition={{ duration: 0.6 }}
         viewport={{ once: true }}
         className="text-center max-w-4xl mx-auto mb-20 px-4"
       >
@@ -100,7 +115,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         </h2>
 
         <p className="text-gray-600 mt-4 text-lg max-w-xl mx-auto">
-          Learn from expert faculty with well-structured courses designed for excellent academic results.
+          Learn from expert faculty with structured courses designed for academic excellence.
         </p>
       </motion.div>
 
@@ -116,28 +131,30 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         {courses.map((course, i) => (
 
           <motion.div
-            key={course._id}
-            initial={{ opacity: 0, scale: 0.9 }}
+            key={course?._id || i}
+            initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: i * 0.1 }}
-            whileHover={{ y: -8, scale: 1.02 }}
-            className="relative rounded-3xl border border-blue-100 bg-white/80 backdrop-blur-lg p-7 shadow-xl hover:shadow-2xl transition duration-300"
+            transition={{ duration: 0.4, delay: i * 0.05 }}
+            whileHover={{ y: -6 }}
+            className="relative rounded-3xl border border-blue-100 bg-white/90 p-7 shadow-xl"
           >
 
-            {/* Top Banner */}
-            <div className="absolute -top-4 right-5 bg-gradient-to-r from-blue-600 to-indigo-500 text-white px-4 py-1 rounded-full text-xs font-semibold shadow">
+            {/* Badge */}
+            <div className="absolute -top-4 right-5 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-semibold shadow">
               Popular
             </div>
 
             {/* Title */}
             <h3 className="text-xl font-bold text-blue-700 mb-2">
-              {course.title}
+              {typeof course?.title === "string" ? course.title : "Untitled Course"}
             </h3>
 
             {/* Description */}
             <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-              {course.description}
+              {typeof course?.description === "string"
+                ? course.description
+                : "Course details will be updated soon."}
             </p>
 
             {/* Details */}
@@ -145,26 +162,29 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-blue-600" />
-                <span>{course.duration}</span>
+                <span>
+                  {typeof course?.duration === "string"
+                    ? course.duration
+                    : "Duration not specified"}
+                </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <IndianRupee size={16} className="text-blue-600" />
                 <span className="text-lg font-bold text-blue-700">
-                  ₹{course.fees}
+                  ₹{typeof course?.fees === "number" ? course.fees : 0}
                 </span>
               </div>
 
-              {course.limitedSeats !== undefined && (
+              {typeof course?.limitedSeats === "number" && (
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-blue-600" />
                   <span>
-                    Seats Available: 
+                    Seats Available:
                     <b className="ml-1 text-blue-700">{course.limitedSeats}</b>
                   </span>
                 </div>
               )}
-
             </div>
 
             {/* CTA Button */}
@@ -172,10 +192,10 @@ export default function CoursesSection({ user, onTriggerLogin }) {
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
               onClick={() => handlePayment(course)}
-              className={`mt-6 w-full py-3 rounded-xl font-semibold text-white text-base transition-all duration-300 
+              className={`mt-6 w-full py-3 rounded-xl font-semibold text-white 
                 ${user 
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" 
-                  : "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
+                  ? "bg-blue-600 hover:bg-blue-700" 
+                  : "bg-red-500 hover:bg-red-600"
                 }`}
             >
               {user ? "Enroll Now" : "Login to Enroll"}

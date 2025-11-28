@@ -1,21 +1,107 @@
-import mongoose from "mongoose";
+import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
-import app from "./server.js";
+import mongoose from "mongoose";
+
+// Import Routes
+import authRoutes from "./routes/authRoutes.js";
+import admissionRoutes from "./routes/admissionRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import courseRoutes from "./routes/courseRoutes.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5000;
+const app = express();
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("✅ MongoDB connected");
-    console.log("📦 Database:", mongoose.connection.name);
+/* ✅ CORS CONFIG */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://arihant-coaching-u117.vercel.app"
+];
 
-    app.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-    });
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS: " + origin));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
   })
-  .catch((err) => {
-    console.error("❌ MongoDB connection failed:", err.message);
+);
+
+app.options("*", cors());
+
+/* ✅ Middlewares */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ✅ Root Route */
+app.get("/", (req, res) => {
+  res.send("✅ Arihant Coaching Backend is Running...");
+});
+
+/* ✅ MongoDB Connect */
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+
+/* ✅ MongoDB Test Route */
+app.get("/test-db", async (req, res) => {
+  try {
+    const Payment = (await import("./models/Payment.js")).default;
+
+    const payment = await Payment.create({
+      studentName: "Test User",
+      email: "test@gmail.com",
+      course: "SSC",
+      amount: 100,
+      paymentId: "pay_test_001",
+      status: "Paid"
+    });
+
+    res.json({
+      message: "✅ MongoDB write test success",
+      payment
+    });
+
+  } catch (error) {
+    console.error("❌ MongoDB Write Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ✅ API Routes */
+app.use("/api/auth", authRoutes);
+app.use("/api/admission", admissionRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/courses", courseRoutes);
+
+/* ✅ 404 Handler */
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Route not found ❌",
+    path: req.originalUrl
   });
+});
+
+/* ✅ Global Error Handler */
+app.use((err, req, res, next) => {
+  console.error("🔥 Server Error:", err.stack);
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err.message
+  });
+});
+
+/* ✅ Start Server */
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});

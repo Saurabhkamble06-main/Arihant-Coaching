@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -17,5 +18,8 @@
     "pdfkit": "^0.13.0",
     "razorpay": "^2.9.3",
     "recharts": "^3.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   }
 }
