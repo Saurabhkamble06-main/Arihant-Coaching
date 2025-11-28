@@ -24,20 +24,29 @@ export default function Navbar({
     if (navRef.current) {
       setNavHeight(navRef.current.offsetHeight);
     }
-
     const handleResize = () => {
       if (navRef.current) {
         setNavHeight(navRef.current.offsetHeight);
       }
     };
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleNavClick = (action) => {
-    action();
+  // 🔥 Close mobile menu and unlock scroll
+  const closeMenu = () => {
+    document.body.style.overflow = "auto";
     setMenuOpen(false);
+  };
+
+  const openMenu = () => {
+    document.body.style.overflow = "hidden";
+    setMenuOpen(true);
+  };
+
+  const handleNavClick = (action) => {
+    if (action) action();
+    closeMenu();
   };
 
   return (
@@ -111,20 +120,20 @@ export default function Navbar({
 
           {/* MOBILE MENU ICON */}
           <div className="md:hidden">
-            <button onClick={() => setMenuOpen(true)}>
+            <button onClick={openMenu}>
               <Menu size={28} />
             </button>
           </div>
         </div>
       </nav>
 
-      {/* ✅ AUTO SPACER (Fix Header Overlap Issue) */}
+      {/* Spacer */}
       <div style={{ height: navHeight }}></div>
 
       {/* ================= MOBILE BACKDROP ================= */}
       {menuOpen && (
         <div
-          onClick={() => setMenuOpen(false)}
+          onClick={closeMenu}
           className="fixed inset-0 bg-black/40 z-40"
         />
       )}
@@ -136,7 +145,7 @@ export default function Navbar({
       >
         <div className="flex justify-between items-center px-5 py-4 border-b">
           <h3 className="text-lg font-bold text-blue-700">Menu</h3>
-          <button onClick={() => setMenuOpen(false)}>
+          <button onClick={closeMenu}>
             <X size={26} />
           </button>
         </div>
@@ -160,7 +169,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     onChangePassword();
-                    setMenuOpen(false);
+                    closeMenu();
                   }}
                   className="border border-blue-700 text-blue-700 px-3 py-1 rounded-lg"
                 >
@@ -170,7 +179,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     onLogout();
-                    setMenuOpen(false);
+                    closeMenu();
                   }}
                   className="bg-red-600 text-white px-3 py-1 rounded-lg"
                 >
@@ -182,7 +191,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     onLogin();
-                    setMenuOpen(false);
+                    closeMenu();
                   }}
                   className="text-blue-700 font-semibold"
                 >
@@ -192,7 +201,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     onRegister();
-                    setMenuOpen(false);
+                    closeMenu();
                   }}
                   className="bg-blue-700 text-white px-4 py-1 rounded-lg"
                 >
