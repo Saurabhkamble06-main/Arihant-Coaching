@@ -7,11 +7,11 @@ export default function CoursesSection({ user, onTriggerLogin }) {
   const [courses, setCourses] = useState([]);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  // ✅ Use Render backend URL
+  // ✅ Backend API (Render)
   const API_URL =
     import.meta.env.VITE_API_URL || "https://arihant-coaching.onrender.com";
 
-  // ✅ Razorpay Key from ENV
+  // ✅ Razorpay Public Key
   const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY;
 
   // ✅ Load Razorpay Script
@@ -28,7 +28,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     document.body.appendChild(script);
   }, []);
 
-  // ✅ Fetch Courses
+  // ✅ Fetch courses (Vite Compatible)
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -36,12 +36,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
         const data = await res.json();
 
-        if (Array.isArray(data)) {
-          setCourses(data);
-        } else {
-          console.error("⚠ API returned invalid courses:", data);
-          setCourses([]);
-        }
+        setCourses(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("❌ Course Fetch Error:", err);
         setCourses([]);
@@ -71,7 +66,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     }
 
     const options = {
-      key: RAZORPAY_KEY,   // ✅ loaded from env
+      key: RAZORPAY_KEY,
       amount: Number(course?.fees || 0) * 100,
       currency: "INR",
       name: "Arihant Coaching Classes",
@@ -120,7 +115,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
       id="courses"
       className="py-28 bg-gradient-to-br from-blue-50 via-white to-blue-100"
     >
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -137,7 +131,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         </p>
       </motion.div>
 
-      {/* Grid */}
       <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
 
         {courses.length === 0 && (
@@ -147,7 +140,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         )}
 
         {courses.map((course, i) => (
-
           <motion.div
             key={course?._id || i}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -174,9 +166,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-blue-600" />
-                <span>
-                  {course?.duration || "Duration not specified"}
-                </span>
+                <span>{course?.duration || "Duration not specified"}</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -211,10 +201,9 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             </motion.button>
 
           </motion.div>
-
         ))}
       </div>
-
     </section>
   );
 }
+
