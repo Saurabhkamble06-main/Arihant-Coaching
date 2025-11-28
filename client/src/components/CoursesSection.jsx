@@ -7,9 +7,14 @@ export default function CoursesSection({ user, onTriggerLogin }) {
   const [courses, setCourses] = useState([]);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  // ✅ Use Render backend URL
+  const API_URL =
+    import.meta.env.VITE_API_URL || "https://arihant-coaching.onrender.com";
 
-  // ✅ Load Razorpay once
+  // ✅ Razorpay Key from ENV
+  const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY;
+
+  // ✅ Load Razorpay Script
   useEffect(() => {
     if (window.Razorpay) {
       setRazorpayLoaded(true);
@@ -23,23 +28,28 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     document.body.appendChild(script);
   }, []);
 
-  // ✅ Fetch courses safely
+  // ✅ Fetch Courses
   useEffect(() => {
-    fetch(`${API_URL}/api/courses`)
-      .then(res => res.json())
-      .then(data => {
+    const fetchCourses = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/courses`);
+
+        const data = await res.json();
+
         if (Array.isArray(data)) {
           setCourses(data);
         } else {
           console.error("⚠ API returned invalid courses:", data);
           setCourses([]);
         }
-      })
-      .catch(err => {
+      } catch (err) {
         console.error("❌ Course Fetch Error:", err);
         setCourses([]);
-      });
-  }, [API_URL]);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   // ✅ Handle Payment
   const handlePayment = (course) => {
@@ -54,8 +64,14 @@ export default function CoursesSection({ user, onTriggerLogin }) {
       return;
     }
 
+    if (!RAZORPAY_KEY) {
+      alert("❌ Razorpay key missing. Contact admin.");
+      console.error("Missing Razorpay public key!");
+      return;
+    }
+
     const options = {
-      key: "rzp_live_RSDZXNQuzxyWEL",
+      key: RAZORPAY_KEY,   // ✅ loaded from env
       amount: Number(course?.fees || 0) * 100,
       currency: "INR",
       name: "Arihant Coaching Classes",
@@ -68,7 +84,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
 
       handler: async (response) => {
         try {
-          await fetch(`${API_URL}/api/payment/save`, {
+          const res = await fetch(`${API_URL}/api/payment/save`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -81,6 +97,8 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             })
           });
 
+          if (!res.ok) throw new Error("Payment save failed");
+
           alert("✅ Payment Successful & Enrollment Confirmed!");
         } catch (err) {
           console.error("❌ Save payment error:", err);
@@ -89,7 +107,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
       },
 
       theme: {
-        color: "#2563eb",
+        color: "#2563eb"
       }
     };
 
@@ -98,8 +116,8 @@ export default function CoursesSection({ user, onTriggerLogin }) {
   };
 
   return (
-    <section 
-      id="courses" 
+    <section
+      id="courses"
       className="py-28 bg-gradient-to-br from-blue-50 via-white to-blue-100"
     >
       {/* Header */}
@@ -140,43 +158,35 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             className="relative rounded-3xl border border-blue-100 bg-white/90 p-7 shadow-xl"
           >
 
-            {/* Badge */}
             <div className="absolute -top-4 right-5 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-semibold shadow">
               Popular
             </div>
 
-            {/* Title */}
             <h3 className="text-xl font-bold text-blue-700 mb-2">
-              {typeof course?.title === "string" ? course.title : "Untitled Course"}
+              {course?.title || "Untitled Course"}
             </h3>
 
-            {/* Description */}
             <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-              {typeof course?.description === "string"
-                ? course.description
-                : "Course details will be updated soon."}
+              {course?.description || "Course details will be updated soon."}
             </p>
 
-            {/* Details */}
             <div className="space-y-3 text-sm text-gray-700">
 
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-blue-600" />
                 <span>
-                  {typeof course?.duration === "string"
-                    ? course.duration
-                    : "Duration not specified"}
+                  {course?.duration || "Duration not specified"}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <IndianRupee size={16} className="text-blue-600" />
                 <span className="text-lg font-bold text-blue-700">
-                  ₹{typeof course?.fees === "number" ? course.fees : 0}
+                  ₹{course?.fees || 0}
                 </span>
               </div>
 
-              {typeof course?.limitedSeats === "number" && (
+              {course?.limitedSeats && (
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-blue-600" />
                   <span>
@@ -187,7 +197,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
               )}
             </div>
 
-            {/* CTA Button */}
             <motion.button
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
