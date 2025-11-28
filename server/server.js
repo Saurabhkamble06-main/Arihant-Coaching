@@ -18,12 +18,13 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "https://arihant-coaching-u117.vercel.app",
+  "https://arihant-coaching.onrender.com",
   process.env.FRONTEND_URL
 ];
 
 /* ✅ CORS Logic */
 const isOriginAllowed = (origin) => {
-  if (!origin) return true; // Postman, curl
+  if (!origin) return true; // allow Postman, curl etc.
   if (allowedOrigins.includes(origin)) return true;
   if (origin.includes(".onrender.com")) return true;
   return false;
@@ -38,12 +39,12 @@ app.use(
         callback(new Error("❌ CORS blocked: " + origin));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
 
-/* Handle Preflight */
+/* ✅ Preflight */
 app.options("*", cors({ origin: true, credentials: true }));
 
 /* ✅ Middlewares */
