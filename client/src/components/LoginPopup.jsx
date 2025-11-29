@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -13,6 +13,7 @@ export default function LoginPopup({ onClose, onLogin }) {
   const API_URL =
     process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
 
+  // --- CHANGED: more robust request/response logging and parsing ---
   const handleLogin = async () => {
     if (!email || !password) {
       setError("Please enter email and password");
@@ -22,34 +23,66 @@ export default function LoginPopup({ onClose, onLogin }) {
     setLoading(true);
     setError("");
 
-    try {
-      const body = {
-        email: email.toLowerCase().trim(),
-        password,
-      };
+    const body = {
+      email: email.toLowerCase().trim(),
+      password,
+    };
 
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+    const url = `${API_URL}/api/auth/login`;
+    try {
+      // log request for debugging
+      console.debug("Login request:", { url, body });
+
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json", // hint server we expect JSON
+        },
         body: JSON.stringify(body),
       });
 
-      // robust parsing for error payloads
-      let data;
+      // read response as text first (handles HTML 500 pages)
+      const text = await res.text();
+      let data = null;
       try {
-        data = await res.json();
+        data = text ? JSON.parse(text) : null;
       } catch (parseErr) {
+        // not JSON (likely HTML or plain text) — keep raw text for debugging
         data = null;
       }
 
+      // debug response
+      console.debug("Login response:", {
+        status: res.status,
+        statusText: res.statusText,
+        raw: text,
+        parsed: data,
+      });
+
       if (!res.ok) {
-        const msg =
-          (data && (data.msg || data.message)) ||
-          (data && JSON.stringify(data)) ||
-          "Invalid credentials ❌";
-        setError(msg);
+        // prefer standard message keys, else show status + small snippet of body
+        const serverMsg = (data && (data.msg || data.message)) || null;
+        const snippet =
+          text && text.length > 300 ? text.slice(0, 300) + "..." : text;
+        setError(
+          serverMsg ||
+            `Server returned ${res.status} ${res.statusText}: ${snippet}`
+        );
         setLoading(false);
         return;
+      }
+
+      // if OK but not JSON parsed, attempt to parse again or report
+      if (!data) {
+        try {
+          data = JSON.parse(text || "{}");
+        } catch {
+          // still not JSON — fail gracefully
+          setError("Invalid server response. Check server logs.");
+          setLoading(false);
+          return;
+        }
       }
 
       // 🔥 User data
@@ -70,14 +103,36 @@ export default function LoginPopup({ onClose, onLogin }) {
       document.body.style.overflow = "auto";
       onClose();
     } catch (err) {
-      console.error("Login Error:", err);
-      setError("Server Error. Try again later.");
+      console.error("Login Error (network/exception):", err);
+      setError(
+        "Network or server error. Check console/network tab and server logs."
+      );
       setLoading(false);
     }
   };
 
+  // Ensure body styles that prevent background scrolling / overscroll while modal is mounted.
+  useEffect(() => {
+    // previous code used document.body.style.overflow toggles in handlers;
+    // set them here and restore on unmount to be robust.
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    // 'none' or 'contain' prevents bounce/overscroll propagation on mobile without attaching touch listeners
+    document.body.style.overscrollBehavior = "contain";
+
+    return () => {
+      document.body.style.overflow = prevOverflow || "";
+      document.body.style.overscrollBehavior = prevOverscroll || "";
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]">
+    <div
+      // Add touch-action / overscrollBehavior to the overlay so browsers don't need to attach blocking touch listeners
+      className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]"
+      style={{ touchAction: "manipulation", overscrollBehavior: "contain" }}
+    >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
