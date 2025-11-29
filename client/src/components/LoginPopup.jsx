@@ -13,7 +13,7 @@ export default function LoginPopup({ onClose, onLogin }) {
   const API_URL =
     process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
 
-  // --- CHANGED: more robust request/response logging and parsing ---
+  // --- CHANGED: try multiple endpoints and give clearer debug/error info ---
   const handleLogin = async () => {
     if (!email || !password) {
       setError("Please enter email and password");
@@ -23,69 +23,114 @@ export default function LoginPopup({ onClose, onLogin }) {
     setLoading(true);
     setError("");
 
-    const body = {
-      email: email.toLowerCase().trim(),
-      password,
-    };
+    const payload = { email: email.toLowerCase().trim(), password };
 
-    const url = `${API_URL}/api/auth/login`;
-    try {
-      // log request for debugging
-      console.debug("Login request:", { url, body });
+    // Candidate endpoints to try if the primary route is missing
+    const candidates = [
+      "/api/auth/login",
+      "/api/login",
+      "/auth/login",
+      "/login",
+      "/api/v1/auth/login",
+    ];
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json", // hint server we expect JSON
-        },
-        body: JSON.stringify(body),
-      });
+    let lastAttempt = null;
+    let successData = null;
 
-      // read response as text first (handles HTML 500 pages)
-      const text = await res.text();
-      let data = null;
+    for (const path of candidates) {
+      const url = `${API_URL.replace(/\/$/, "")}${path}`;
       try {
-        data = text ? JSON.parse(text) : null;
-      } catch (parseErr) {
-        // not JSON (likely HTML or plain text) — keep raw text for debugging
-        data = null;
-      }
+        console.debug("Attempting login:", { url, payload });
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
 
-      // debug response
-      console.debug("Login response:", {
-        status: res.status,
-        statusText: res.statusText,
-        raw: text,
-        parsed: data,
-      });
-
-      if (!res.ok) {
-        // prefer standard message keys, else show status + small snippet of body
-        const serverMsg = (data && (data.msg || data.message)) || null;
-        const snippet =
-          text && text.length > 300 ? text.slice(0, 300) + "..." : text;
-        setError(
-          serverMsg ||
-            `Server returned ${res.status} ${res.statusText}: ${snippet}`
-        );
-        setLoading(false);
-        return;
-      }
-
-      // if OK but not JSON parsed, attempt to parse again or report
-      if (!data) {
+        const raw = await res.text();
+        let parsed = null;
         try {
-          data = JSON.parse(text || "{}");
+          parsed = raw ? JSON.parse(raw) : null;
         } catch {
-          // still not JSON — fail gracefully
-          setError("Invalid server response. Check server logs.");
-          setLoading(false);
-          return;
+          parsed = null;
         }
-      }
 
-      // 🔥 User data
+        console.debug("Response:", { url, status: res.status, raw, parsed });
+
+        // If route not found or 4xx/5xx that suggests wrong endpoint, try next
+        if (!res.ok) {
+          lastAttempt = { url, status: res.status, parsed, raw };
+          // If server explicitly says route not found, continue to next candidate
+          const routeNotFound =
+            (parsed &&
+              (parsed.error === "Route not found ❌" ||
+                parsed.msg === "Route not found ❌")) ||
+            (raw && raw.toLowerCase().includes("route not found"));
+          if (
+            routeNotFound ||
+            res.status === 404 ||
+            (res.status >= 400 && res.status < 500)
+          ) {
+            // try next endpoint
+            continue;
+          }
+          // For 5xx, stop and show server response
+          lastAttempt = { url, status: res.status, parsed, raw };
+          break;
+        }
+
+        // success
+        successData = parsed;
+        lastAttempt = { url, status: res.status, parsed, raw };
+        break;
+      } catch (err) {
+        // network error — remember and try next
+        console.error("Fetch attempt error:", err);
+        lastAttempt = { url, error: String(err) };
+        continue;
+      }
+    }
+
+    // handle result
+    if (!successData) {
+      // build user-friendly message from lastAttempt
+      let message = "Login failed. ";
+      if (lastAttempt) {
+        if (
+          lastAttempt.parsed &&
+          (lastAttempt.parsed.msg ||
+            lastAttempt.parsed.error ||
+            lastAttempt.parsed.message)
+        ) {
+          message +=
+            lastAttempt.parsed.msg ||
+            lastAttempt.parsed.error ||
+            lastAttempt.parsed.message;
+        } else if (lastAttempt.status) {
+          const snippet =
+            lastAttempt.raw && lastAttempt.raw.length > 300
+              ? lastAttempt.raw.slice(0, 300) + "..."
+              : lastAttempt.raw;
+          message += `Server returned ${lastAttempt.status}. ${snippet}`;
+        } else if (lastAttempt.error) {
+          message += lastAttempt.error;
+        } else {
+          message += "Unknown server response.";
+        }
+      } else {
+        message += "No response from server.";
+      }
+      setError(message);
+      setLoading(false);
+      return;
+    }
+
+    // process successful response (same as before)
+    try {
+      const data = successData;
       const userData = {
         id: data.user?.id,
         name: data.user?.name,
@@ -93,7 +138,6 @@ export default function LoginPopup({ onClose, onLogin }) {
         role: data.role || "user",
       };
 
-      // Save token + user
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(userData));
 
@@ -103,10 +147,8 @@ export default function LoginPopup({ onClose, onLogin }) {
       document.body.style.overflow = "auto";
       onClose();
     } catch (err) {
-      console.error("Login Error (network/exception):", err);
-      setError(
-        "Network or server error. Check console/network tab and server logs."
-      );
+      console.error("Processing success response failed:", err);
+      setError("Unexpected server response. Check console.");
       setLoading(false);
     }
   };
