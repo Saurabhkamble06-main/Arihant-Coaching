@@ -9,11 +9,16 @@ export default function LoginPopup({ onClose, onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 🔥 Backend URL (Render)
+  // 🌍 Auto-detect backend: localhost (dev) or Render (production)
   const API_URL =
-    process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:5000"
+      : process.env.REACT_APP_API_URL ||
+        "https://arihant-coaching.onrender.com";
 
-  // --- CHANGED: try multiple endpoints and give clearer debug/error info ---
+  // 🔥 Single correct login endpoint
+  const LOGIN_ENDPOINT = `${API_URL.replace(/\/$/, "")}/api/auth/login`;
+
   const handleLogin = async () => {
     if (!email || !password) {
       setError("Please enter email and password");
@@ -23,114 +28,34 @@ export default function LoginPopup({ onClose, onLogin }) {
     setLoading(true);
     setError("");
 
-    const payload = { email: email.toLowerCase().trim(), password };
-
-    // Candidate endpoints to try if the primary route is missing
-    const candidates = [
-      "/api/auth/login",
-      "/api/login",
-      "/auth/login",
-      "/login",
-      "/api/v1/auth/login",
-    ];
-
-    let lastAttempt = null;
-    let successData = null;
-
-    for (const path of candidates) {
-      const url = `${API_URL.replace(/\/$/, "")}${path}`;
-      try {
-        console.debug("Attempting login:", { url, payload });
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const raw = await res.text();
-        let parsed = null;
-        try {
-          parsed = raw ? JSON.parse(raw) : null;
-        } catch {
-          parsed = null;
-        }
-
-        console.debug("Response:", { url, status: res.status, raw, parsed });
-
-        // If route not found or 4xx/5xx that suggests wrong endpoint, try next
-        if (!res.ok) {
-          lastAttempt = { url, status: res.status, parsed, raw };
-          // If server explicitly says route not found, continue to next candidate
-          const routeNotFound =
-            (parsed &&
-              (parsed.error === "Route not found ❌" ||
-                parsed.msg === "Route not found ❌")) ||
-            (raw && raw.toLowerCase().includes("route not found"));
-          if (
-            routeNotFound ||
-            res.status === 404 ||
-            (res.status >= 400 && res.status < 500)
-          ) {
-            // try next endpoint
-            continue;
-          }
-          // For 5xx, stop and show server response
-          lastAttempt = { url, status: res.status, parsed, raw };
-          break;
-        }
-
-        // success
-        successData = parsed;
-        lastAttempt = { url, status: res.status, parsed, raw };
-        break;
-      } catch (err) {
-        // network error — remember and try next
-        console.error("Fetch attempt error:", err);
-        lastAttempt = { url, error: String(err) };
-        continue;
-      }
-    }
-
-    // handle result
-    if (!successData) {
-      // build user-friendly message from lastAttempt
-      let message = "Login failed. ";
-      if (lastAttempt) {
-        if (
-          lastAttempt.parsed &&
-          (lastAttempt.parsed.msg ||
-            lastAttempt.parsed.error ||
-            lastAttempt.parsed.message)
-        ) {
-          message +=
-            lastAttempt.parsed.msg ||
-            lastAttempt.parsed.error ||
-            lastAttempt.parsed.message;
-        } else if (lastAttempt.status) {
-          const snippet =
-            lastAttempt.raw && lastAttempt.raw.length > 300
-              ? lastAttempt.raw.slice(0, 300) + "..."
-              : lastAttempt.raw;
-          message += `Server returned ${lastAttempt.status}. ${snippet}`;
-        } else if (lastAttempt.error) {
-          message += lastAttempt.error;
-        } else {
-          message += "Unknown server response.";
-        }
-      } else {
-        message += "No response from server.";
-      }
-      setError(message);
-      setLoading(false);
-      return;
-    }
-
-    // process successful response (same as before)
     try {
-      const data = successData;
+      const res = await fetch(LOGIN_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+
+      const raw = await res.text();
+      let data = null;
+
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.error("JSON Parse Error:", e);
+      }
+
+      if (!res.ok) {
+        setError(data?.msg || data?.error || "Invalid credentials ❌");
+        setLoading(false);
+        return;
+      }
+
+      // Save user
       const userData = {
         id: data.user?.id,
         name: data.user?.name,
@@ -143,35 +68,27 @@ export default function LoginPopup({ onClose, onLogin }) {
 
       onLogin(userData);
       setLoading(false);
-
       document.body.style.overflow = "auto";
       onClose();
     } catch (err) {
-      console.error("Processing success response failed:", err);
-      setError("Unexpected server response. Check console.");
+      console.error("Login Error:", err);
+      setError("Server Error. Try again later.");
       setLoading(false);
     }
   };
 
-  // Ensure body styles that prevent background scrolling / overscroll while modal is mounted.
+  // 🔒 Prevent background scroll
   useEffect(() => {
-    // previous code used document.body.style.overflow toggles in handlers;
-    // set them here and restore on unmount to be robust.
     const prevOverflow = document.body.style.overflow;
-    const prevOverscroll = document.body.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
-    // 'none' or 'contain' prevents bounce/overscroll propagation on mobile without attaching touch listeners
-    document.body.style.overscrollBehavior = "contain";
 
     return () => {
       document.body.style.overflow = prevOverflow || "";
-      document.body.style.overscrollBehavior = prevOverscroll || "";
     };
   }, []);
 
   return (
     <div
-      // Add touch-action / overscrollBehavior to the overlay so browsers don't need to attach blocking touch listeners
       className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]"
       style={{ touchAction: "manipulation", overscrollBehavior: "contain" }}
     >
@@ -192,19 +109,17 @@ export default function LoginPopup({ onClose, onLogin }) {
           ✕
         </button>
 
-        {/* Heading */}
         <h2 className="text-2xl font-extrabold text-center text-blue-700 mb-6">
           Welcome Back 👋
         </h2>
 
-        {/* Error */}
         {error && (
           <div className="bg-red-100 text-red-600 text-sm p-2 rounded mb-4 text-center">
             {error}
           </div>
         )}
 
-        {/* Wrap inputs in a form so browser autofill & enter-key behave correctly */}
+        {/* Form */}
         <form
           onSubmit={(e) => {
             e.preventDefault();

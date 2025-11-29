@@ -3,15 +3,25 @@ import { motion } from "framer-motion";
 import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPopup({ onClose, onTriggerLogin }) {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
 
-  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 🔥 CRA-Compatible ENV API URL
+  // 🌍 Auto-detect backend (dev = localhost, prod = Render)
   const API_URL =
-    process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:5000"
+      : process.env.REACT_APP_API_URL ||
+        "https://arihant-coaching.onrender.com";
+
+  // 🔥 Single correct register endpoint
+  const REGISTER_ENDPOINT = `${API_URL.replace(/\/$/, "")}/api/auth/register`;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -29,32 +39,40 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
     setError("");
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+      const res = await fetch(REGISTER_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email.toLowerCase().trim(),
+          password: formData.password,
+        }),
       });
 
-      const data = await res.json();
+      const raw = await res.text();
+      let data = null;
+
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.error("JSON Parse Error:", e);
+      }
 
       if (!res.ok) {
-        setError(data.msg || "Registration failed ❌");
+        setError(data?.msg || data?.error || "Registration failed ❌");
         setLoading(false);
         return;
       }
 
-      alert(`✅ Account Created Successfully!\nWelcome ${data.user.name} 🎉`);
+      alert(`🎉 Account Created Successfully!\nWelcome ${data.user.name} 🚀`);
 
       setLoading(false);
-
-      // Restore scroll
       document.body.style.overflow = "auto";
 
       onClose();
       onTriggerLogin && onTriggerLogin();
-
-    } catch (error) {
-      console.error("Registration error:", error);
+    } catch (err) {
+      console.error("Registration error:", err);
       setError("Server error. Try again later.");
       setLoading(false);
     }
@@ -62,7 +80,6 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]">
-
       <motion.div
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -72,7 +89,7 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
         {/* Close Button */}
         <button
           onClick={() => {
-            document.body.style.overflow = "auto"; // FIX blur freeze
+            document.body.style.overflow = "auto";
             onClose();
           }}
           className="absolute top-3 right-4 text-gray-600 hover:text-black text-lg"
@@ -91,7 +108,6 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
           {/* Full Name */}
           <div className="relative">
             <User className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -101,6 +117,7 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
               placeholder="Full Name"
               value={formData.name}
               onChange={handleChange}
+              required
               className="w-full border pl-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -112,8 +129,10 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
               type="email"
               name="email"
               placeholder="Email Address"
+              autoComplete="email"
               value={formData.email}
               onChange={handleChange}
+              required
               className="w-full border pl-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -121,13 +140,14 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
           {/* Password */}
           <div className="relative">
             <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-
             <input
               type={showPass ? "text" : "password"}
               name="password"
               placeholder="Create Password"
+              autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
+              required
               className="w-full border pl-10 pr-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
 
