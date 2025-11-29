@@ -23,19 +23,31 @@ export default function LoginPopup({ onClose, onLogin }) {
     setError("");
 
     try {
+      const body = {
+        email: email.toLowerCase().trim(),
+        password,
+      };
+
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(), // 🔥 FIXED — normalize email
-          password,
-        }),
+        body: JSON.stringify(body),
       });
 
-      const data = await res.json();
+      // robust parsing for error payloads
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        data = null;
+      }
 
       if (!res.ok) {
-        setError(data.msg || "Invalid credentials ❌");
+        const msg =
+          (data && (data.msg || data.message)) ||
+          (data && JSON.stringify(data)) ||
+          "Invalid credentials ❌";
+        setError(msg);
         setLoading(false);
         return;
       }
@@ -57,7 +69,6 @@ export default function LoginPopup({ onClose, onLogin }) {
 
       document.body.style.overflow = "auto";
       onClose();
-
     } catch (err) {
       console.error("Login Error:", err);
       setError("Server Error. Try again later.");
@@ -96,51 +107,65 @@ export default function LoginPopup({ onClose, onLogin }) {
           </div>
         )}
 
-        {/* Email */}
-        <div className="relative mb-4">
-          <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="w-full border pl-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
-        </div>
-
-        {/* Password */}
-        <div className="relative mb-6">
-          <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-          <input
-            type={showPass ? "text" : "password"}
-            placeholder="Enter your password"
-            className="w-full border pl-10 pr-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
-
-          {/* Eye Toggle */}
-          <button
-            onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-2.5 text-gray-500 hover:text-blue-600"
-          >
-            {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
-
-        {/* Login Button */}
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleLogin}
-          disabled={loading}
-          className={`w-full py-3 rounded-lg text-white font-semibold transition 
-            ${loading ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800"}`}
+        {/* Wrap inputs in a form so browser autofill & enter-key behave correctly */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleLogin();
+          }}
+          autoComplete="on"
         >
-          {loading ? "Logging in..." : "Login"}
-        </motion.button>
+          {/* Email */}
+          <div className="relative mb-4">
+            <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              placeholder="Enter your email"
+              required
+              className="w-full border pl-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          {/* Password */}
+          <div className="relative mb-6">
+            <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+            <input
+              type={showPass ? "text" : "password"}
+              name="current-password"
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              required
+              className="w-full border pl-10 pr-10 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            {/* Eye Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-3 top-2.5 text-gray-500 hover:text-blue-600"
+            >
+              {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          {/* Login Button */}
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95 }}
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-lg text-white font-semibold transition 
+              ${loading ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800"}`}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </motion.button>
+        </form>
       </motion.div>
     </div>
   );
