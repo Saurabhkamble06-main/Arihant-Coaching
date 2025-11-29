@@ -5,20 +5,21 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// TEST
+// TEST ROUTE
 router.get("/", (req, res) => {
   res.json({ message: "Auth API is working ✅" });
 });
 
 // REGISTER
 router.post("/register", async (req, res) => {
+  console.log("REGISTER BODY:", req.body);
+
   try {
     let { name, email, password } = req.body;
 
     if (!name || !email || !password)
       return res.status(400).json({ msg: "All fields are required" });
 
-    // NORMALIZE EMAIL
     email = email.toLowerCase().trim();
 
     const existing = await User.findOne({ email });
@@ -33,30 +34,30 @@ router.post("/register", async (req, res) => {
       role: "user",
     });
 
-    res.json({
+    return res.json({
       msg: "Registered successfully ✅",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
       },
     });
   } catch (err) {
-    console.error("Register Error:", err.message);
-    res.status(500).json({ error: "Server error" });
+    console.error("Register Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 // LOGIN
 router.post("/login", async (req, res) => {
+  console.log("LOGIN BODY:", req.body);
+
   try {
     let { email, password } = req.body;
 
     if (!email || !password)
       return res.status(400).json({ msg: "Email & password required" });
 
-    // NORMALIZE EMAIL
     email = email.toLowerCase().trim();
 
     const user = await User.findOne({ email });
@@ -71,7 +72,7 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({
+    return res.json({
       token,
       role: user.role,
       user: {
@@ -81,8 +82,8 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Login Error:", err.message);
-    res.status(500).json({ error: "Server error" });
+    console.error("Login Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
