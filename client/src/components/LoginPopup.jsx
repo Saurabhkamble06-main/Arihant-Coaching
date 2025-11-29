@@ -68,7 +68,7 @@ export default function LoginPopup({ onClose, onLogin }) {
 
       onLogin(userData);
       setLoading(false);
-      document.body.style.overflow = "auto";
+      // rely on useEffect cleanup to restore scroll
       onClose();
     } catch (err) {
       console.error("Login Error:", err);
@@ -101,7 +101,7 @@ export default function LoginPopup({ onClose, onLogin }) {
         {/* Close */}
         <button
           onClick={() => {
-            document.body.style.overflow = "auto";
+            // rely on useEffect cleanup to restore scroll
             onClose();
           }}
           className="absolute top-3 right-4 text-gray-600 hover:text-black text-lg"

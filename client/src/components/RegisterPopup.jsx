@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
@@ -22,6 +22,15 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
 
   // 🔥 Single correct register endpoint
   const REGISTER_ENDPOINT = `${API_URL.replace(/\/$/, "")}/api/auth/register`;
+
+  // Prevent background scroll while modal is mounted
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow || "";
+    };
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -67,8 +76,6 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
       alert(`🎉 Account Created Successfully!\nWelcome ${data.user.name} 🚀`);
 
       setLoading(false);
-      document.body.style.overflow = "auto";
-
       onClose();
       onTriggerLogin && onTriggerLogin();
     } catch (err) {
@@ -79,7 +86,10 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-[9999]"
+      style={{ touchAction: "manipulation", overscrollBehavior: "contain" }}
+    >
       <motion.div
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -89,7 +99,6 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
         {/* Close Button */}
         <button
           onClick={() => {
-            document.body.style.overflow = "auto";
             onClose();
           }}
           className="absolute top-3 right-4 text-gray-600 hover:text-black text-lg"
@@ -178,7 +187,6 @@ export default function RegisterPopup({ onClose, onTriggerLogin }) {
           Already have an account?
           <span
             onClick={() => {
-              document.body.style.overflow = "auto";
               onClose();
               onTriggerLogin();
             }}
