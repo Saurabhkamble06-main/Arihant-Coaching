@@ -3,17 +3,18 @@ import Course from "../models/Course.js";
 
 const router = express.Router();
 
-/* ✅ Add New Course */
-router.post("/add", async (req, res) => {
+/* ADD COURSE */
+router.post("/", async (req, res) => {
   try {
-    const { title, description, duration, fees, category } = req.body;
+    const { title, description, duration, fees, category, limitedSeats } = req.body;
 
     const course = await Course.create({
       title,
       description,
       duration,
       fees,
-      category
+      category,
+      limitedSeats
     });
 
     res.status(201).json({
@@ -27,7 +28,7 @@ router.post("/add", async (req, res) => {
   }
 });
 
-/* ✅ Get All Courses */
+/* GET ALL COURSES */
 router.get("/", async (req, res) => {
   try {
     const courses = await Course.find().sort({ createdAt: -1 });
@@ -38,12 +39,60 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* ✅ Delete Course */
+/* ✅ NEW — GET ONE COURSE BY ID */
+router.get("/:id", async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id);
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    res.json(course);
+
+  } catch (err) {
+    console.error("Get Course Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* UPDATE COURSE */
+router.put("/:id", async (req, res) => {
+  try {
+    const updated = await Course.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    res.json({
+      message: "✅ Course updated successfully",
+      course: updated
+    });
+
+  } catch (err) {
+    console.error("Update Course Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* DELETE COURSE */
 router.delete("/:id", async (req, res) => {
   try {
-    await Course.findByIdAndDelete(req.params.id);
+    const removed = await Course.findByIdAndDelete(req.params.id);
+
+    if (!removed) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
     res.json({ message: "❌ Course deleted successfully" });
+
   } catch (err) {
+    console.error("Delete Course Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

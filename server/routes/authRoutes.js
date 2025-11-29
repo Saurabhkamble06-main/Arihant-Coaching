@@ -5,15 +5,17 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// TEST ROUTE
+/* ===========================
+   TEST ROUTE
+=========================== */
 router.get("/", (req, res) => {
   res.json({ message: "Auth API is working ✅" });
 });
 
-// REGISTER
+/* ===========================
+   REGISTER
+=========================== */
 router.post("/register", async (req, res) => {
-  console.log("REGISTER BODY:", req.body);
-
   try {
     let { name, email, password } = req.body;
 
@@ -23,7 +25,8 @@ router.post("/register", async (req, res) => {
     email = email.toLowerCase().trim();
 
     const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ msg: "User already exists" });
+    if (existing)
+      return res.status(400).json({ msg: "User already exists" });
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -34,24 +37,25 @@ router.post("/register", async (req, res) => {
       role: "user",
     });
 
-    return res.json({
+    res.json({
       msg: "Registered successfully ✅",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Register Error:", err.message);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// LOGIN
+/* ===========================
+   LOGIN
+=========================== */
 router.post("/login", async (req, res) => {
-  console.log("LOGIN BODY:", req.body);
-
   try {
     let { email, password } = req.body;
 
@@ -72,7 +76,7 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    return res.json({
+    res.json({
       token,
       role: user.role,
       user: {
@@ -82,9 +86,23 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Login Error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ===========================
+   GET ALL USERS (ADMIN)
+=========================== */
+router.get("/all-users", async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (err) {
+    console.error("Users Fetch Error:", err.message);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 export default router;
+

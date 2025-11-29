@@ -6,68 +6,91 @@ import {
 
 export default function AdminDashboard({ onLogout }) {
 
-  const API_URL =
-    process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
+  const API = process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
 
   const [tab, setTab] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [payments, setPayments] = useState([]);
   const [courses, setCourses] = useState([]);
 
-  // Fetch Courses
-  const fetchCourses = () => {
-    fetch(`${API_URL}/api/courses`)
-      .then(res => res.json())
-      .then(data => setCourses(data))
-      .catch(err => console.error("Courses Load Error:", err));
+  /* =====================================================
+     ✅ Fetch All Payments
+  ===================================================== */
+  const fetchPayments = async () => {
+    try {
+      const res = await fetch(`${API}/api/payment`);
+      const data = await res.json();
+      setPayments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Payments Fetch Error:", err);
+    }
   };
 
-  // Fetch Payments + Courses on load
-  useEffect(() => {
-    fetch(`${API_URL}/api/payment`)
-      .then(res => res.json())
-      .then(data => setPayments(data))
-      .catch(err => console.error("Payment Load Error:", err));
+  /* =====================================================
+     ✅ Fetch All Courses
+  ===================================================== */
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch(`${API}/api/courses`);
+      const data = await res.json();
+      setCourses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Courses Fetch Error:", err);
+    }
+  };
 
+  /* =====================================================
+     🔁 Initial Load
+  ===================================================== */
+  useEffect(() => {
+    fetchPayments();
     fetchCourses();
   }, []);
 
-  // Sidebar auto-close on resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) setMenuOpen(false);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
+  /* =====================================================
+     📌 Unique Students Count
+  ===================================================== */
   const students = [...new Set(payments.map(p => p.email))];
 
-  // Update Course
-  const updateCourse = async (id, data) => {
-    await fetch(`${API_URL}/api/courses/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    fetchCourses();
+  /* =====================================================
+     ✏️ Update Course
+  ===================================================== */
+  const updateCourse = async (id, updateData) => {
+    try {
+      await fetch(`${API}/api/courses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData)
+      });
+      fetchCourses();
+    } catch (err) {
+      console.error("❌ Update Course Error:", err);
+    }
   };
 
-  // Delete Course
+  /* =====================================================
+     ❌ Delete Course
+  ===================================================== */
   const deleteCourse = async (id) => {
     if (!window.confirm("Delete this course permanently?")) return;
 
-    await fetch(`${API_URL}/api/courses/${id}`, {
-      method: "DELETE",
-    });
-    fetchCourses();
+    try {
+      await fetch(`${API}/api/courses/${id}`, { method: "DELETE" });
+      fetchCourses();
+    } catch (err) {
+      console.error("❌ Delete Course Error:", err);
+    }
   };
 
+  /* =====================================================
+     UI
+  ===================================================== */
   return (
     <div className="min-h-screen flex bg-gray-100 text-gray-800">
 
-      {/* SIDEBAR */}
-      <div className={`fixed md:static top:0 left-0 w-64 h-full bg-white shadow-lg z-50 
+      {/* ================== SIDEBAR ================== */}
+      <div className={`fixed md:static top-0 left-0 w-64 h-full bg-white shadow-lg z-50 
         transition-transform duration-300
         ${menuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
 
@@ -108,14 +131,12 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
+      {/* Mobile overlay */}
       {menuOpen && (
-        <div 
-          onClick={() => setMenuOpen(false)} 
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
-        />
+        <div onClick={() => setMenuOpen(false)} className="fixed inset-0 bg-black/40 z-40 md:hidden" />
       )}
 
-      {/* MAIN AREA */}
+      {/* ================== MAIN ================== */}
       <div className="flex-1 p-5 md:ml-64">
 
         <div className="md:hidden flex justify-between items-center mb-4">
@@ -125,18 +146,19 @@ export default function AdminDashboard({ onLogout }) {
           <h2 className="font-bold text-lg">Admin Panel</h2>
         </div>
 
-        {/* TABS */}
+        {/* ================== DASHBOARD ================== */}
         {tab === "dashboard" && (
           <>
             <h2 className="text-xl font-bold mb-6">Dashboard</h2>
+
             <div className="grid md:grid-cols-3 gap-5">
               {[
                 { title: "Students", value: students.length },
                 { title: "Courses", value: courses.length },
                 { title: "Payments", value: payments.length }
-              ].map((item, i) => (
-                <div key={i} className="bg-white p-5 rounded-xl shadow">
-                  <p>{item.title}</p>
+              ].map((item, idx) => (
+                <div key={idx} className="bg-white p-5 rounded-xl shadow border hover:shadow-md transition">
+                  <p className="text-gray-500">{item.title}</p>
                   <h3 className="text-3xl font-bold text-blue-600">{item.value}</h3>
                 </div>
               ))}
@@ -144,15 +166,17 @@ export default function AdminDashboard({ onLogout }) {
           </>
         )}
 
+        {/* ================== STUDENTS ================== */}
         {tab === "students" && (
           <>
             <h2 className="text-xl font-bold mb-6">Students</h2>
-            <div className="bg-white rounded-xl shadow p-4 overflow-x-auto">
+
+            <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
               <table className="w-full text-sm border">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="p-3">Email</th>
-                    <th>Courses</th>
+                    <th className="p-3 text-left">Email</th>
+                    <th>Courses Enrolled</th>
                     <th>Total Paid</th>
                   </tr>
                 </thead>
@@ -160,10 +184,10 @@ export default function AdminDashboard({ onLogout }) {
                   {students.map((email, i) => {
                     const paid = payments.filter(p => p.email === email);
                     return (
-                      <tr key={i} className="border-t">
+                      <tr key={i} className="border-t hover:bg-gray-50">
                         <td className="p-3">{email}</td>
                         <td>{paid.length}</td>
-                        <td className="text-blue-600 font-bold">
+                        <td className="font-bold text-blue-600">
                           ₹{paid.reduce((a, b) => a + b.amount, 0)}
                         </td>
                       </tr>
@@ -175,15 +199,16 @@ export default function AdminDashboard({ onLogout }) {
           </>
         )}
 
+        {/* ================== COURSES ================== */}
         {tab === "courses" && (
           <>
             <h2 className="text-xl font-bold mb-6">Courses</h2>
 
-            <div className="bg-white rounded-xl shadow p-4 overflow-x-auto">
+            <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
               <table className="w-full text-sm border">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="p-3">Title</th>
+                    <th className="p-3 text-left">Title</th>
                     <th>Fees</th>
                     <th>Seats</th>
                     <th>Edit</th>
@@ -193,7 +218,7 @@ export default function AdminDashboard({ onLogout }) {
 
                 <tbody>
                   {courses.map((course, i) => (
-                    <tr key={i} className="border-t">
+                    <tr key={i} className="border-t hover:bg-gray-50">
                       <td className="p-3">{course.title}</td>
 
                       <td>
@@ -201,29 +226,31 @@ export default function AdminDashboard({ onLogout }) {
                           type="number"
                           defaultValue={course.fees}
                           className="border rounded px-2 py-1 w-20"
-                          onBlur={(e) =>
-                            updateCourse(course._id, { fees: +e.target.value })
-                          }
+                          onBlur={(e) => updateCourse(course._id, { fees: +e.target.value })}
                         />
                       </td>
 
                       <td>
                         <input
                           type="number"
-                          defaultValue={course.llimitedSeats}
+                          defaultValue={course.limitedSeats}
                           className="border rounded px-2 py-1 w-20"
-                          onBlur={(e) =>
-                            updateCourse(course._id, { limitedSeats: +e.target.value })
-                          }
+                          onBlur={(e) => updateCourse(course._id, {
+                            limitedSeats: +e.target.value
+                          })}
                         />
                       </td>
 
-                      <td><Edit size={16} className="text-blue-600" /></td>
+                      <td>
+                        <button className="text-blue-600 hover:text-blue-800">
+                          <Edit size={16} />
+                        </button>
+                      </td>
 
                       <td>
                         <button
                           onClick={() => deleteCourse(course._id)}
-                          className="text-red-500"
+                          className="text-red-500 hover:text-red-700"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -231,17 +258,17 @@ export default function AdminDashboard({ onLogout }) {
                     </tr>
                   ))}
                 </tbody>
-
               </table>
             </div>
           </>
         )}
 
+        {/* ================== PAYMENTS ================== */}
         {tab === "payments" && (
           <>
             <h2 className="text-xl font-bold mb-6">Payments</h2>
 
-            <div className="bg-white rounded-xl shadow p=4 overflow-x-auto">
+            <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
               <table className="w-full text-sm border">
                 <thead className="bg-gray-100">
                   <tr>
@@ -254,24 +281,23 @@ export default function AdminDashboard({ onLogout }) {
 
                 <tbody>
                   {payments.map((p, i) => (
-                    <tr key={i} className="border-t">
+                    <tr key={i} className="border-t hover:bg-gray-50">
                       <td className="p-3">{p.studentName}</td>
                       <td>{p.course}</td>
-                      <td className="text-green-600 font-bold">₹{p.amount}</td>
+                      <td className="text-green-600 font-bold">
+                        ₹{p.amount}
+                      </td>
                       <td className={p.status === "Paid" ? "text-green-600" : "text-red-500"}>
                         {p.status}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-
               </table>
             </div>
           </>
         )}
-
       </div>
-
     </div>
   );
 }

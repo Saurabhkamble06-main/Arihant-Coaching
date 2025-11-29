@@ -7,15 +7,24 @@ export default function CoursesSection({ user, onTriggerLogin }) {
   const [courses, setCourses] = useState([]);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  // 🌐 PRODUCTION API URL ONLY
-  const API_URL = "https://arihant-coaching.onrender.com";
+  // =============================
+  //  PRODUCTION API URL
+  // =============================
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "https://arihant-coaching.onrender.com";
 
-  // 🔑 Razorpay key (production only)
-  const RAZORPAY_KEY = process.env.REACT_APP_RAZORPAY_KEY || "";
+  const RAZORPAY_KEY =
+    process.env.REACT_APP_RAZORPAY_KEY || "";
 
-  // Load Razorpay script (production)
+  // =============================
+  //  LOAD RAZORPAY SCRIPT
+  // =============================
   useEffect(() => {
-    if (window.Razorpay) return setRazorpayLoaded(true);
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
 
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -24,49 +33,61 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     document.body.appendChild(script);
   }, []);
 
-  // Fetch courses
+  // =============================
+  //  FETCH COURSES (PRODUCTION API)
+  // =============================
   useEffect(() => {
-    const load = async () => {
+    const fetchCourses = async () => {
       try {
         const res = await fetch(`${API_URL}/api/courses`);
         const data = await res.json();
 
-        if (Array.isArray(data)) setCourses(data);
-        else setCourses([]);
+        if (Array.isArray(data)) {
+          setCourses(data);
+        } else {
+          console.error("⚠ Invalid Course API Response", data);
+        }
       } catch (err) {
-        console.error("❌ Course fetch error:", err);
-        setCourses([]);
+        console.error("❌ Course Fetch Error:", err);
       }
     };
-    load();
-  }, []);
 
-  // PAYMENT HANDLER
+    fetchCourses();
+  }, [API_URL]);
+
+  // =============================
+  //  HANDLE PAYMENT
+  // =============================
   const handlePayment = (course) => {
 
-    if (!user) return onTriggerLogin();
+    if (!user) {
+      if (onTriggerLogin) onTriggerLogin();
+      return;
+    }
 
     if (!razorpayLoaded) {
-      alert("⏳ Payment gateway loading… Please wait.");
+      alert("⏳ Payment system is loading. Please wait...");
       return;
     }
 
     if (!RAZORPAY_KEY) {
-      alert("❌ Payment key missing. Contact admin.");
-      console.error("Missing Razorpay Public Key!");
+      alert("❌ Payment Error: Razorpay Key Missing");
+      console.error("Missing Razorpay Key");
       return;
     }
 
     const options = {
       key: RAZORPAY_KEY,
-      amount: course.fees * 100,
+      amount: Number(course?.fees || 0) * 100,
       currency: "INR",
       name: "Arihant Coaching Classes",
-      description: course.title,
+      description: course?.title || "Course",
+
       prefill: {
         name: user?.name,
-        email: user?.email
+        email: user?.email,
       },
+
       handler: async (response) => {
         try {
           const res = await fetch(`${API_URL}/api/payment/save`, {
@@ -75,67 +96,109 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             body: JSON.stringify({
               studentName: user?.name,
               email: user?.email,
-              course: course.title,
-              amount: course.fees,
+              course: course?.title,
+              amount: course?.fees,
               paymentId: response.razorpay_payment_id,
-              status: "Paid",
+              status: "Success",
             }),
           });
 
-          if (!res.ok) throw new Error("Payment save failed");
+          if (!res.ok) throw new Error("Payment Save Failed ❌");
 
-          alert("✅ Payment Successful & Enrollment Confirmed!");
+          alert("✅ Payment Successful! Enrollment Confirmed 🎉");
+
         } catch (err) {
-          console.error("❌ Payment save failed:", err);
-          alert("⚠ Payment done but saving failed. Contact support.");
+          console.error("Payment Save Error:", err);
+          alert("⚠ Payment completed, but saving failed. Contact support.");
         }
-      }
+      },
+
+      theme: { color: "#2563eb" },
     };
 
-    new window.Razorpay(options).open();
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
+  // =============================
+  //  UI
+  // =============================
   return (
-    <section id="courses" className="py-28 bg-blue-50">
+    <section
+      id="courses"
+      className="py-28 bg-gradient-to-br from-blue-50 via-white to-blue-100"
+    >
+      {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         viewport={{ once: true }}
-        className="text-center mb-16"
+        className="text-center max-w-4xl mx-auto mb-20 px-4"
       >
-        <h2 className="text-4xl font-extrabold text-blue-700">Our Courses</h2>
-        <p className="text-gray-600 mt-3">Enroll in the best coaching programs</p>
+        <h2 className="text-4xl md:text-5xl font-extrabold text-blue-700 tracking-tight">
+          Our Premium Courses
+        </h2>
+
+        <p className="text-gray-600 mt-4 text-lg max-w-xl mx-auto">
+          Learn from expert faculty with structured courses for academic excellence.
+        </p>
       </motion.div>
 
-      <div className="max-w-6xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
-        {courses.map((course, i) => (
+      {/* Course Cards */}
+      <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
+
+        {courses.length === 0 && (
+          <p className="col-span-3 text-center text-red-600 text-lg font-semibold">
+            No courses available right now.
+          </p>
+        )}
+
+        {courses.map((course, index) => (
           <motion.div
-            key={i}
-            initial={{ opacity: 0, scale: 0.9 }}
+            key={course._id}
+            initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.4 }}
-            className="bg-white p-6 rounded-3xl shadow-xl border"
+            transition={{ duration: 0.4, delay: index * 0.05 }}
+            whileHover={{ y: -6 }}
+            className="relative rounded-3xl border border-blue-100 bg-white/90 p-7 shadow-xl"
           >
-            <h3 className="text-xl font-bold text-blue-700">{course.title}</h3>
+            <div className="absolute -top-4 right-5 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-semibold shadow">
+              Popular
+            </div>
 
-            <p className="text-gray-600 mt-2">{course.description}</p>
+            <h3 className="text-xl font-bold text-blue-700 mb-2">
+              {course.title}
+            </h3>
 
-            <div className="mt-4 space-y-2 text-gray-700 text-sm">
-              <p className="flex items-center gap-2">
-                <Clock size={16} /> {course.duration}
-              </p>
-              <p className="flex items-center gap-2">
-                <IndianRupee size={16} />{" "}
+            <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+              {course.description || "Course details will be updated soon."}
+            </p>
+
+            <div className="space-y-3 text-sm text-gray-700">
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-blue-600" />
+                <span>{course.duration || "Duration not specified"}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <IndianRupee size={16} className="text-blue-600" />
                 <span className="text-lg font-bold text-blue-700">
                   ₹{course.fees}
                 </span>
-              </p>
+              </div>
+
               {course.limitedSeats && (
-                <p className="flex items-center gap-2">
-                  <Users size={16} /> Seats Available: {course.limitedSeats}
-                </p>
+                <div className="flex items-center gap-2">
+                  <Users size={16} className="text-blue-600" />
+                  <span>
+                    Seats Available:
+                    <b className="ml-1 text-blue-700">
+                      {course.limitedSeats}
+                    </b>
+                  </span>
+                </div>
               )}
             </div>
 
@@ -143,14 +206,18 @@ export default function CoursesSection({ user, onTriggerLogin }) {
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
               onClick={() => handlePayment(course)}
-              className={`mt-6 w-full py-3 rounded-xl font-semibold text-white ${
-                user ? "bg-blue-600 hover:bg-blue-700" : "bg-red-500"
-              }`}
+              className={`mt-6 w-full py-3 rounded-xl font-semibold text-white 
+                ${
+                  user
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-red-500 hover:bg-red-600"
+                }`}
             >
               {user ? "Enroll Now" : "Login to Enroll"}
             </motion.button>
           </motion.div>
         ))}
+
       </div>
     </section>
   );
