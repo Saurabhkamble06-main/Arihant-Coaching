@@ -3,23 +3,21 @@ import { motion } from "framer-motion";
 import { Users, IndianRupee, Clock } from "lucide-react";
 
 export default function CoursesSection({ user, onTriggerLogin }) {
-
   const [courses, setCourses] = useState([]);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  // =============================
-  //  PRODUCTION API URL
-  // =============================
+  // ===========================
+  // PRODUCTION API URL
+  // ===========================
   const API_URL =
-    process.env.REACT_APP_API_URL ||
-    "https://arihant-coaching.onrender.com";
+    process.env.REACT_APP_API_URL || "https://arihant-coaching.onrender.com";
 
-  const RAZORPAY_KEY =
-    process.env.REACT_APP_RAZORPAY_KEY || "";
+  // Razorpay Public Key
+  const RAZORPAY_KEY = process.env.REACT_APP_RAZORPAY_KEY || "";
 
-  // =============================
-  //  LOAD RAZORPAY SCRIPT
-  // =============================
+  // ===========================
+  // Load Razorpay Script
+  // ===========================
   useEffect(() => {
     if (window.Razorpay) {
       setRazorpayLoaded(true);
@@ -29,13 +27,13 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => setRazorpayLoaded(true);
-    script.onerror = () => console.error("❌ Razorpay failed to load");
+    script.onerror = () => console.error("❌ Razorpay script failed to load");
     document.body.appendChild(script);
   }, []);
 
-  // =============================
-  //  FETCH COURSES (PRODUCTION API)
-  // =============================
+  // ===========================
+  // Fetch Courses
+  // ===========================
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -45,7 +43,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         if (Array.isArray(data)) {
           setCourses(data);
         } else {
-          console.error("⚠ Invalid Course API Response", data);
+          console.error("⚠ Invalid course response:", data);
         }
       } catch (err) {
         console.error("❌ Course Fetch Error:", err);
@@ -55,24 +53,22 @@ export default function CoursesSection({ user, onTriggerLogin }) {
     fetchCourses();
   }, [API_URL]);
 
-  // =============================
-  //  HANDLE PAYMENT
-  // =============================
+  // ===========================
+  // Handle Payment
+  // ===========================
   const handlePayment = (course) => {
-
     if (!user) {
-      if (onTriggerLogin) onTriggerLogin();
+      onTriggerLogin && onTriggerLogin();
       return;
     }
 
     if (!razorpayLoaded) {
-      alert("⏳ Payment system is loading. Please wait...");
+      alert("⏳ Payment system still loading…");
       return;
     }
 
     if (!RAZORPAY_KEY) {
-      alert("❌ Payment Error: Razorpay Key Missing");
-      console.error("Missing Razorpay Key");
+      alert("❌ Payment key missing. Please contact admin.");
       return;
     }
 
@@ -81,16 +77,19 @@ export default function CoursesSection({ user, onTriggerLogin }) {
       amount: Number(course?.fees || 0) * 100,
       currency: "INR",
       name: "Arihant Coaching Classes",
-      description: course?.title || "Course",
+      description: course?.title,
 
       prefill: {
         name: user?.name,
         email: user?.email,
       },
 
+      // ===========================
+      // PAYMENT SUCCESS HANDLER
+      // ===========================
       handler: async (response) => {
         try {
-          const res = await fetch(`${API_URL}/api/payment/save`, {
+          const saveRes = await fetch(`${API_URL}/api/payment/save`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -99,30 +98,40 @@ export default function CoursesSection({ user, onTriggerLogin }) {
               course: course?.title,
               amount: course?.fees,
               paymentId: response.razorpay_payment_id,
-              status: "Success",
+              status: "Paid",
             }),
           });
 
-          if (!res.ok) throw new Error("Payment Save Failed ❌");
+          if (!saveRes.ok) {
+            throw new Error("Payment saved but not stored in backend.");
+          }
 
-          alert("✅ Payment Successful! Enrollment Confirmed 🎉");
+          // 🎉 SUCCESS POPUP
+          alert(
+            `🎉 Payment Successful!\nCourse: ${course?.title}\nThank you for enrolling.`
+          );
 
-        } catch (err) {
-          console.error("Payment Save Error:", err);
-          alert("⚠ Payment completed, but saving failed. Contact support.");
+          // 🔁 Redirect to homepage or admin dashboard
+          window.location.href = "/";
+
+        } catch (error) {
+          console.error("❌ Payment Save Error:", error);
+          alert("⚠ Payment done, but system failed to save record.");
         }
       },
 
-      theme: { color: "#2563eb" },
+      theme: {
+        color: "#2563eb",
+      },
     };
 
     const rzp = new window.Razorpay(options);
     rzp.open();
   };
 
-  // =============================
-  //  UI
-  // =============================
+  // ===========================
+  // UI
+  // ===========================
   return (
     <section
       id="courses"
@@ -139,28 +148,27 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         <h2 className="text-4xl md:text-5xl font-extrabold text-blue-700 tracking-tight">
           Our Premium Courses
         </h2>
-
         <p className="text-gray-600 mt-4 text-lg max-w-xl mx-auto">
-          Learn from expert faculty with structured courses for academic excellence.
+          Learn from expert faculty with structured courses designed for
+          academic excellence.
         </p>
       </motion.div>
 
-      {/* Course Cards */}
+      {/* Grid */}
       <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
-
         {courses.length === 0 && (
           <p className="col-span-3 text-center text-red-600 text-lg font-semibold">
             No courses available right now.
           </p>
         )}
 
-        {courses.map((course, index) => (
+        {courses.map((course, i) => (
           <motion.div
             key={course._id}
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: index * 0.05 }}
+            transition={{ duration: 0.4, delay: i * 0.05 }}
             whileHover={{ y: -6 }}
             className="relative rounded-3xl border border-blue-100 bg-white/90 p-7 shadow-xl"
           >
@@ -173,13 +181,13 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             </h3>
 
             <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-              {course.description || "Course details will be updated soon."}
+              {course.description || "More details coming soon."}
             </p>
 
             <div className="space-y-3 text-sm text-gray-700">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-blue-600" />
-                <span>{course.duration || "Duration not specified"}</span>
+                <span>{course.duration}</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -194,9 +202,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
                   <Users size={16} className="text-blue-600" />
                   <span>
                     Seats Available:
-                    <b className="ml-1 text-blue-700">
-                      {course.limitedSeats}
-                    </b>
+                    <b className="ml-1 text-blue-700">{course.limitedSeats}</b>
                   </span>
                 </div>
               )}
@@ -217,7 +223,6 @@ export default function CoursesSection({ user, onTriggerLogin }) {
             </motion.button>
           </motion.div>
         ))}
-
       </div>
     </section>
   );
