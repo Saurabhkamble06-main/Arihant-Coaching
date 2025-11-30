@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -14,32 +17,36 @@ dotenv.config();
 
 const app = express();
 
+// ===== NEW: Serve uploads & ensure folder =====
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
+
 /* ======================================================
-   FIX #1 — BODY PARSER MUST BE BEFORE CORS
+   BODY PARSER BEFORE CORS
    ====================================================== */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================================================
-   FIX #2 — UNIVERSAL CORS for Vercel + Render + Localhost
+   NEW: imports of middleware
    ====================================================== */
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (origin.includes("localhost")) return callback(null, true);
-      if (origin.includes("vercel.app")) return callback(null, true);
-      if (origin.includes("onrender.com")) return callback(null, true);
+import { corsOptions, corsHeaders } from "./middleware/corsMiddleware.js";
+import { requestLogger, errorLogger } from "./middleware/logger.js";
 
-      console.log("❌ BLOCKED ORIGIN:", origin);
-      return callback(new Error("CORS Blocked"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  })
-);
+/* ======================================================
+   REQUEST LOGGING + CORS USAGE
+   ====================================================== */
+app.use(requestLogger);
+app.use(cors(corsOptions));
+app.use(corsHeaders);
 
-app.options("*", cors());
+// Ensure OPTIONS preflight handled quickly
+app.options("*", corsHeaders);
 
 /* ======================================================
    HEALTH CHECK
@@ -79,6 +86,32 @@ app.use((req, res) => {
   res.status(404).json({
     error: "Route not found ❌",
     path: req.originalUrl,
+  });
+});
+
+/* ======================================================
+   USE ERROR LOGGER
+   ====================================================== */
+app.use(errorLogger);
+
+/* ======================================================
+   GLOBAL ERROR HANDLER
+   - Make sure CORS headers are present even on errors
+   ====================================================== */
+app.use((err, req, res, next) => {
+  console.error("🔥 Server Error:", err.message || err);
+  // mirror origin header if allowed
+  const origin = req.headers.origin || "";
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err.message || "Unexpected error",
   });
 });
 

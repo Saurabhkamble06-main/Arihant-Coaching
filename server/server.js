@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Import Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -14,42 +17,37 @@ dotenv.config();
 
 const app = express();
 
-/* ✅ Allowed Frontend Origins */
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://arihant-coaching-u117.vercel.app",
-  "https://arihant-coaching.onrender.com",
-  process.env.FRONTEND_URL
-];
+// Serve uploads
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 
-/* ✅ CORS Logic */
-const isOriginAllowed = (origin) => {
-  if (!origin) return true; // allow Postman, curl etc.
-  if (allowedOrigins.includes(origin)) return true;
-  if (origin.includes(".onrender.com")) return true;
-  return false;
-};
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("❌ CORS blocked: " + origin));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-  })
-);
-
-/* ✅ Preflight */
-app.options("*", cors({ origin: true, credentials: true }));
-
-/* ✅ Middlewares */
+/* ======================================================
+   Body Parser BEFORE CORS
+   ====================================================== */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+/* ======================================================
+   CENTRAL CORS + LOGGING
+   ====================================================== */
+import { corsOptions, corsHeaders } from "./middleware/corsMiddleware.js";
+import { requestLogger, errorLogger } from "./middleware/logger.js";
+
+app.use(requestLogger);
+
+app.use(cors(corsOptions));
+app.use(corsHeaders);
+
+app.options("*", corsHeaders);
+
+/* ======================================================
+   HEALTH CHECK / ROOT / MONGO / ROUTES ...
+   ====================================================== */
 
 /* ✅ Root Route */
 app.get("/", (req, res) => {
@@ -94,24 +92,29 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", courseRoutes);
 
-/* ✅ 404 Handler */
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Route not found ❌",
-    path: req.originalUrl
-  });
-});
+/* ======================================================
+   GLOBAL ERROR HANDLER
+   ====================================================== */
+app.use(errorLogger);
 
-/* ✅ Global Error Handler */
 app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err.message);
+  console.error("🔥 Server Error:", err.message || err);
+  const origin = req.headers.origin || "";
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.status(500).json({
     error: "Internal Server Error",
-    message: err.message
+    message: err.message || "Unexpected Error"
   });
 });
 
-/* ✅ Start Server */
+/* ======================================================
+   START SERVER
+   ====================================================== */
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
