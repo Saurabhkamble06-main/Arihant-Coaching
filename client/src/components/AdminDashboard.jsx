@@ -135,19 +135,32 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
-  /* =====================================================
-     ❌ Delete Course
-  ===================================================== */
-  const deleteCourse = async (id) => {
-    if (!window.confirm("Delete this course permanently?")) return;
 
-    try {
-      await fetch(`${API}/api/courses/${id}`, { method: "DELETE" });
-      fetchCourses();
-    } catch (err) {
-      console.error("❌ Delete Course Error:", err);
+/* =====================================================
+     ❌ Delete Course
+===================================================== */
+const deleteCourse = async (id) => {
+  if (!window.confirm("Delete this course permanently?")) return;
+
+  try {
+    const res = await fetch(`${API}/api/courses/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("❌ Delete Course Error:", errorData);
+      return;
     }
-  };
+
+    fetchCourses();
+  } catch (err) {
+    console.error("❌ Delete Course Error:", err);
+  }
+};
 
   /* =====================================================
      UI
