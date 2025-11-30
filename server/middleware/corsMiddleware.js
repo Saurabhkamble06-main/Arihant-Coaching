@@ -11,31 +11,45 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 export const isOriginAllowed = (origin) => {
-  if (!origin) return true; // curl/postman/no origin header
+  if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
-  if (allowedOrigins.some((o) => origin.includes(o.replace(/^https?:\/\//, "")))) return true;
-  if (origin.includes("onrender.com") || origin.includes("vercel.app") || origin.includes("localhost")) return true;
+
+  // match without protocol
+  if (allowedOrigins.some((o) => origin.includes(o.replace(/^https?:\/\//, ""))))
+    return true;
+
+  // broad matching
+  if (
+    origin.includes("onrender.com") ||
+    origin.includes("vercel.app") ||
+    origin.includes("localhost")
+  )
+    return true;
+
   return false;
 };
 
+// CORS OPTIONS (used by cors package)
 export const corsOptions = {
   origin: function (origin, callback) {
-    if (isOriginAllowed(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("CORS blocked by corsOptions:", origin);
+    if (isOriginAllowed(origin)) callback(null, true);
+    else {
+      console.warn("CORS blocked:", origin);
       callback(new Error("CORS Blocked: " + origin));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 };
 
+// Manual header injection (AFTER cors)
 export const corsHeaders = (req, res, next) => {
   const origin = req.headers.origin || "";
+
   if (isOriginAllowed(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Origin", origin);
   }
+
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -43,30 +57,9 @@ export const corsHeaders = (req, res, next) => {
   );
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Vary", "Origin");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-};
 
-// New: Fallback middleware to always set CORS headers (defensive)
-export const ensureCors = (req, res, next) => {
-  try {
-    const origin = req.headers.origin || "";
-    if (isOriginAllowed(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    } else {
-      // Safety fallback: allow wildcard if origin not specified (e.g. server-to-server)
-      res.setHeader("Access-Control-Allow-Origin", "*");
-    }
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    );
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Vary", "Origin");
-    if (req.method === "OPTIONS") return res.status(204).end();
-  } catch (e) {
-    // ensure middleware doesn't crash
-  }
+  // Preflight MUST respond 200 on Render/Vercel
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+
   next();
 };

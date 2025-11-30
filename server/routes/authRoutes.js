@@ -6,16 +6,16 @@ import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-/* ===========================
+/* ============================
    TEST ROUTE
-=========================== */
+============================ */
 router.get("/", (req, res) => {
   res.json({ message: "Auth API is working ✅" });
 });
 
-/* ===========================
+/* ============================
    REGISTER
-=========================== */
+============================ */
 router.post("/register", async (req, res) => {
   try {
     let { name, email, password } = req.body;
@@ -35,27 +35,28 @@ router.post("/register", async (req, res) => {
       name,
       email,
       password: hashed,
-      role: "user",
+      role: "user"
     });
 
     res.json({
-      msg: "Registered successfully ✅",
+      msg: "Registered successfully",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
-      },
+        role: user.role
+      }
     });
+
   } catch (err) {
-    console.error("Register Error:", err.message);
+    console.error("Register Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ===========================
+/* ============================
    LOGIN
-=========================== */
+============================ */
 router.post("/login", async (req, res) => {
   try {
     let { email, password } = req.body;
@@ -68,8 +69,8 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: "User not found" });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: "Wrong password" });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(400).json({ msg: "Wrong password" });
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -83,20 +84,19 @@ router.post("/login", async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email,
-      },
+        email: user.email
+      }
     });
+
   } catch (err) {
-    console.error("Login Error:", err.message);
+    console.error("Login Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ===========================
-   GET ALL USERS (ADMIN)
-   Support: ?q=search&page=1&limit=10
-=========================== */
-// Add a shared handler so we can expose multiple paths (e.g. '/all-users', '/admin/users', '/users')
+/* ============================
+   ADMIN — GET USERS (Paginated + Search)
+============================ */
 async function handleGetUsers(req, res) {
   try {
     const q = req.query.q ? req.query.q.trim() : "";
@@ -107,13 +107,14 @@ async function handleGetUsers(req, res) {
       ? {
           $or: [
             { name: { $regex: q, $options: "i" } },
-            { email: { $regex: q, $options: "i" } },
-          ],
+            { email: { $regex: q, $options: "i" } }
+          ]
         }
       : {};
 
     const total = await User.countDocuments(filter);
     const pages = Math.ceil(total / limit);
+
     const users = await User.find(filter)
       .select("-password -__v")
       .sort({ createdAt: -1 })
@@ -121,20 +122,15 @@ async function handleGetUsers(req, res) {
       .limit(limit);
 
     res.json({ users, total, page, pages });
+
   } catch (err) {
-    console.error("Users Fetch Error:", err.message);
+    console.error("Users Fetch Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 }
 
-// Existing route kept but now uses the shared handler
 router.get("/all-users", protect, adminOnly, handleGetUsers);
-
-// Add alias routes to avoid 404 from frontend expecting /api/admin/users
+router.get("/users", protect, adminOnly, handleGetUsers);
 router.get("/admin/users", protect, adminOnly, handleGetUsers);
 
-// Add another friendly route alias for clients using /users
-router.get("/users", protect, adminOnly, handleGetUsers);
-
 export default router;
-
