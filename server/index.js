@@ -35,18 +35,19 @@ app.use(express.urlencoded({ extended: true }));
 /* ======================================================
    NEW: imports of middleware
    ====================================================== */
-import { corsOptions, corsHeaders } from "./middleware/corsMiddleware.js";
+import { corsOptions, corsHeaders, ensureCors } from "./middleware/corsMiddleware.js";
 import { requestLogger, errorLogger } from "./middleware/logger.js";
 
 /* ======================================================
    REQUEST LOGGING + CORS USAGE
    ====================================================== */
 app.use(requestLogger);
-app.use(cors(corsOptions));
-app.use(corsHeaders);
+app.use(cors(corsOptions));      // use cors library (dynamically allowed origins)
+app.use(corsHeaders);            // adds headers for routes and handles OPTIONS
+app.use(ensureCors);            // fallback to ALWAYS set CORS headers on responses
 
-// Ensure OPTIONS preflight handled quickly
-app.options("*", corsHeaders);
+// Ensure OPTIONS preflight handled quickly using the cors library
+app.options("*", cors(corsOptions));  // Use cors() to let it handle preflight
 
 /* ======================================================
    HEALTH CHECK
@@ -100,7 +101,6 @@ app.use(errorLogger);
    ====================================================== */
 app.use((err, req, res, next) => {
   console.error("🔥 Server Error:", err.message || err);
-  // mirror origin header if allowed
   const origin = req.headers.origin || "";
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -108,6 +108,7 @@ app.use((err, req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
   res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Vary", "Origin");
 
   res.status(500).json({
     error: "Internal Server Error",
