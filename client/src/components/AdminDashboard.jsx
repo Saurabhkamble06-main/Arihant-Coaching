@@ -14,7 +14,15 @@ export default function AdminDashboard({ onLogout }) {
 
   const [payments, setPayments] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [users, setUsers] = useState([]); // Added: store fetched users
+
+  // Users + pagination/search
+  const [users, setUsers] = useState([]);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   /* =====================================================
      ✅ Fetch All Payments
@@ -43,14 +51,23 @@ export default function AdminDashboard({ onLogout }) {
   };
 
   /* =====================================================
-     ✅ Fetch All Users (Admin-protected) 
+     ✅ Fetch Users (admin-protected, paginated, searchable)
   ===================================================== */
-  const fetchUsers = async () => {
+  const fetchUsers = async (p = page, q = query) => {
     try {
+      setLoadingUsers(true);
       const token = localStorage.getItem("token");
-      const headers = token ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } : { "Content-Type": "application/json" };
+      const headers = token
+        ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+        : { "Content-Type": "application/json" };
 
-      const res = await fetch(`${API}/api/admin/users`, {
+      const params = new URLSearchParams({
+        page: String(p),
+        limit: String(limit),
+      });
+      if (q) params.set("q", q);
+
+      const res = await fetch(`${API}/api/admin/users?${params.toString()}`, {
         method: "GET",
         headers,
       });
@@ -58,13 +75,21 @@ export default function AdminDashboard({ onLogout }) {
       if (!res.ok) {
         console.error("❌ Fetch users failed:", res.status);
         setUsers([]);
+        setTotalUsers(0);
+        setPages(1);
+        setLoadingUsers(false);
         return;
       }
 
-      const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
+      const json = await res.json();
+      setUsers(Array.isArray(json.users) ? json.users : []);
+      setTotalUsers(json.total ?? (Array.isArray(json.users) ? json.users.length : 0));
+      setPages(json.pages ?? 1);
+      setPage(json.page ?? p);
+      setLoadingUsers(false);
     } catch (err) {
       console.error("❌ Users Fetch Error:", err);
+      setLoadingUsers(false);
     }
   };
 
@@ -74,8 +99,20 @@ export default function AdminDashboard({ onLogout }) {
   useEffect(() => {
     fetchPayments();
     fetchCourses();
-    fetchUsers(); // fetch users too
+    fetchUsers(1, "");
   }, []);
+
+  // Refetch users when page/limit change
+  useEffect(() => {
+    fetchUsers(page, query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, limit]);
+
+  const onSearchSubmit = (e) => {
+    e.preventDefault();
+    setPage(1);
+    fetchUsers(1, query);
+  };
 
   /* =====================================================
      📌 Unique Students Count
@@ -183,7 +220,7 @@ export default function AdminDashboard({ onLogout }) {
 
             <div className="grid md:grid-cols-3 gap-5">
               {[
-                { title: "Users", value: users.length },        // Use users count
+                { title: "Users", value: totalUsers },        // Use totalUsers from server
                 { title: "Courses", value: courses.length },
                 { title: "Payments", value: payments.length }
               ].map((item, idx) => (
@@ -333,8 +370,69 @@ export default function AdminDashboard({ onLogout }) {
           <>
             <h2 className="text-xl font-bold mb-6">All Users</h2>
 
+            {/* Search & Limit */}
+            <div className="flex items-center gap-3 mb-4">
+              <form onSubmit={onSearchSubmit} className="flex gap-2 items-center flex-1">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name or email"
+                  className="w-full border px-3 py-2 rounded-lg"
+                />
+                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg">Search</button>
+              </form>
+
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="border px-3 py-2 rounded-lg"
+              >
+                {[5,10,25,50].map(n => <option key={n} value={n}>{n} / page</option>)}
+              </select>
+            </div>
+
             <div className="bg-white rounded-xl shadow p-4">
-              <UsersList users={users} />
+              {loadingUsers ? (
+                <div className="text-center py-8 text-gray-500">Loading users...</div>
+              ) : (
+                <>
+                  <UsersList users={users} />
+
+                  {/* Pagination Controls */}
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {users.length} of {totalUsers} users
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={page <= 1}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                      >
+                        Prev
+                      </button>
+
+                      {/* Simple page numbers */}
+                      <div className="text-sm px-2 py-1 border rounded">
+                        Page {page} / {pages}
+                      </div>
+
+                      <button
+                        disabled={page >= pages}
+                        onClick={() => setPage(p => Math.min(p + 1, pages))}
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}

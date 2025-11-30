@@ -96,7 +96,8 @@ router.post("/login", async (req, res) => {
    GET ALL USERS (ADMIN)
    Support: ?q=search&page=1&limit=10
 =========================== */
-router.get("/all-users", protect, adminOnly, async (req, res) => {
+// Add a shared handler so we can expose multiple paths (e.g. '/all-users', '/admin/users', '/users')
+async function handleGetUsers(req, res) {
   try {
     const q = req.query.q ? req.query.q.trim() : "";
     const page = Math.max(1, parseInt(req.query.page || "1", 10));
@@ -124,7 +125,16 @@ router.get("/all-users", protect, adminOnly, async (req, res) => {
     console.error("Users Fetch Error:", err.message);
     res.status(500).json({ error: "Server error" });
   }
-});
+}
+
+// Existing route kept but now uses the shared handler
+router.get("/all-users", protect, adminOnly, handleGetUsers);
+
+// Add alias routes to avoid 404 from frontend expecting /api/admin/users
+router.get("/admin/users", protect, adminOnly, handleGetUsers);
+
+// Add another friendly route alias for clients using /users
+router.get("/users", protect, adminOnly, handleGetUsers);
 
 export default router;
 
