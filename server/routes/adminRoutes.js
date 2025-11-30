@@ -36,8 +36,8 @@ router.get("/users", protect, adminOnly, async (req, res) => {
 
     res.json({ users, total, page, pages });
   } catch (err) {
-    console.error("Admin users fetch error:", err);
-    res.status(500).json({ message: "Server error." });
+    console.error("Admin Users Fetch Error:", err.message);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
