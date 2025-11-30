@@ -120,7 +120,7 @@ export default function CoursesSection({ user, onTriggerLogin }) {
         }
       },
 
-      theme: {g
+      theme: {
         color: "#2563eb",
       },
     };
