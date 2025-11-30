@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -93,11 +94,32 @@ router.post("/login", async (req, res) => {
 
 /* ===========================
    GET ALL USERS (ADMIN)
+   Support: ?q=search&page=1&limit=10
 =========================== */
-router.get("/all-users", async (req, res) => {
+router.get("/all-users", protect, adminOnly, async (req, res) => {
   try {
-    const users = await User.find().select("-password");
-    res.json(users);
+    const q = req.query.q ? req.query.q.trim() : "";
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limit = Math.max(1, parseInt(req.query.limit || "10", 10));
+
+    const filter = q
+      ? {
+          $or: [
+            { name: { $regex: q, $options: "i" } },
+            { email: { $regex: q, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const total = await User.countDocuments(filter);
+    const pages = Math.ceil(total / limit);
+    const users = await User.find(filter)
+      .select("-password -__v")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({ users, total, page, pages });
   } catch (err) {
     console.error("Users Fetch Error:", err.message);
     res.status(500).json({ error: "Server error" });

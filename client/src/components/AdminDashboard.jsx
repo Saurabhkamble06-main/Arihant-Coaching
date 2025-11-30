@@ -3,6 +3,7 @@ import {
   Menu, X, LogOut, Users, BookOpen,
   CreditCard, LayoutDashboard, Edit, Trash2
 } from "lucide-react";
+import UsersList from "./UsersList";
 
 export default function AdminDashboard({ onLogout }) {
 
@@ -13,6 +14,7 @@ export default function AdminDashboard({ onLogout }) {
 
   const [payments, setPayments] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [users, setUsers] = useState([]); // Added: store fetched users
 
   /* =====================================================
      ✅ Fetch All Payments
@@ -41,11 +43,38 @@ export default function AdminDashboard({ onLogout }) {
   };
 
   /* =====================================================
+     ✅ Fetch All Users (Admin-protected) 
+  ===================================================== */
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = token ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } : { "Content-Type": "application/json" };
+
+      const res = await fetch(`${API}/api/admin/users`, {
+        method: "GET",
+        headers,
+      });
+
+      if (!res.ok) {
+        console.error("❌ Fetch users failed:", res.status);
+        setUsers([]);
+        return;
+      }
+
+      const data = await res.json();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Users Fetch Error:", err);
+    }
+  };
+
+  /* =====================================================
      🔁 Initial Load
   ===================================================== */
   useEffect(() => {
     fetchPayments();
     fetchCourses();
+    fetchUsers(); // fetch users too
   }, []);
 
   /* =====================================================
@@ -104,6 +133,7 @@ export default function AdminDashboard({ onLogout }) {
         <div className="p-4 space-y-2">
           {[
             { key: "dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
+            { key: "users", icon: <Users />, label: "Users" },          // added Users tab
             { key: "students", icon: <Users />, label: "Students" },
             { key: "courses", icon: <BookOpen />, label: "Courses" },
             { key: "payments", icon: <CreditCard />, label: "Payments" }
@@ -153,7 +183,7 @@ export default function AdminDashboard({ onLogout }) {
 
             <div className="grid md:grid-cols-3 gap-5">
               {[
-                { title: "Students", value: students.length },
+                { title: "Users", value: users.length },        // Use users count
                 { title: "Courses", value: courses.length },
                 { title: "Payments", value: payments.length }
               ].map((item, idx) => (
@@ -294,6 +324,17 @@ export default function AdminDashboard({ onLogout }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </>
+        )}
+
+        {/* ================== USERS ================== */}
+        {tab === "users" && (
+          <>
+            <h2 className="text-xl font-bold mb-6">All Users</h2>
+
+            <div className="bg-white rounded-xl shadow p-4">
+              <UsersList users={users} />
             </div>
           </>
         )}
