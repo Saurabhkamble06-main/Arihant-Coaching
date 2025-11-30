@@ -6,25 +6,22 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Import Routes
+// Routes
 import authRoutes from "./routes/authRoutes.js";
 import admissionRoutes from "./routes/admissionRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import courseRoutes from "./routes/courseRoutes.js";
 
-/* ======================================================
-   IMPORT MIDDLEWARE
-   ====================================================== */
-import { corsOptions, corsHeaders, ensureCors } from "./middleware/corsMiddleware.js";
+// Middlewares
+import { corsMiddleware } from "./middleware/corsMiddleware.js";
 import { requestLogger, errorLogger } from "./middleware/logger.js";
 
 dotenv.config();
-
 const app = express();
 
 /* ======================================================
-   UPLOADS FOLDER SETUP
+   UPLOADS FOLDER
    ====================================================== */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,24 +31,23 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-app.use("/uploads", express.static(uploadsDir));
-
 /* ======================================================
-   BODY PARSER (BEFORE CORS)
+   PARSERS
    ====================================================== */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ======================================================
-   LOGGING + CORS
+   LOGGING + CORS (ONLY THIS!)
    ====================================================== */
 app.use(requestLogger);
-app.use(cors(corsOptions));
-app.use(corsHeaders);
-app.use(ensureCors);
+app.use(corsMiddleware);        // <-- correct CORS
+app.options("*", corsMiddleware);
 
-// Ensure OPTIONS preflight handled by the cors library
-app.options("*", cors(corsOptions));
+/* ======================================================
+   STATIC FILES
+   ====================================================== */
+app.use("/uploads", express.static(uploadsDir));
 
 /* ======================================================
    BASIC ROUTES
@@ -73,7 +69,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB Error:", err));
 
 /* ======================================================
-   LOAD API ROUTES
+   API ROUTES
    ====================================================== */
 app.use("/api/auth", authRoutes);
 app.use("/api/admission", admissionRoutes);
@@ -98,11 +94,6 @@ app.use(errorLogger);
 
 app.use((err, req, res, next) => {
   console.error("🔥 Server Error:", err.message || err);
-
-  const origin = req.headers.origin || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Vary", "Origin");
 
   res.status(500).json({
     error: "Internal Server Error",

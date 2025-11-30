@@ -14,7 +14,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import courseRoutes from "./routes/courseRoutes.js";
 
 // Import Middleware
-import { corsOptions, corsHeaders } from "./middleware/corsMiddleware.js";
+import { corsOptions, corsHeaders, ensureCors } from "./middleware/corsMiddleware.js";
 import { requestLogger, errorLogger } from "./middleware/logger.js";
 
 dotenv.config();
@@ -31,8 +31,6 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-app.use("/uploads", express.static(uploadsDir));
-
 /* ======================================================
    BODY PARSER
 ====================================================== */
@@ -41,13 +39,20 @@ app.use(express.urlencoded({ extended: true }));
 
 /* ======================================================
    LOGGING + CORS (Correct Order)
+   - Ensure CORS runs before static files and routes
 ====================================================== */
 app.use(requestLogger);        // Log requests first
-app.use(cors(corsOptions));    // Cors package
-app.use(corsHeaders);          // Custom headers
+app.use(cors(corsOptions));    // cors package will set headers for allowed origins
+app.use(corsHeaders);          // custom headers to keep behavior consistent
+app.use(ensureCors);           // ensure headers on all responses (including static/edge cases)
 
 // Preflight
 app.options("*", cors(corsOptions));
+
+/* ======================================================
+   STATIC (after CORS so static responses also include headers)
+====================================================== */
+app.use("/uploads", express.static(uploadsDir));
 
 /* ======================================================
    BASIC ROUTES
